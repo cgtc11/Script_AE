@@ -40,7 +40,7 @@ Mode を Layer にして Copy。</br>
 名前依存のエクスプレッションは、貼り付け先で名前が変わると手直しが必要な場合がある。</br>
 AEPXが読み取り専用や権限で消せない場合、削除はスキップされる。</br>
 </br>
-ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー</br>
+ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー</br>
 </br>
 Download [ShapeDeTriming.zip](https://github.com/user-attachments/files/23167375/ShapeDeTriming.zip)</br>
 </br>
