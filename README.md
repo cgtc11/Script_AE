@@ -3,7 +3,7 @@ Download [CoPiPe.zip](https://github.com/user-attachments/files/23167371/CoPiPe.
 <img width="206" height="164" alt="copipe" src="https://github.com/user-attachments/assets/cd40701b-c91c-49c4-9000-117024de2f64" /></br>
 </br>
 ■CoPiPe.jsx v1.0 説明■</br>
-選択中のコンポまたはレイヤーだけを依存関係ごとAEPXに一時保存し、別プロジェクトへ安全に貼り付ける。</br>
+選択中のコンポまたはレイヤーだけを依存関係ごとAEPXに一時保存し、別起動のAEプロジェクトへ安全に貼り付ける。</br>
 </br>
 ■仕組み■</br>
 Copy</br>
@@ -49,7 +49,7 @@ Download [ShapeDeTriming.zip](https://github.com/user-attachments/files/23167375
 <img width="262" height="564" alt="shapedetriming" src="https://github.com/user-attachments/assets/1a92fe97-d0dc-4d8f-aa15-b4773187f264" /></br>
 </br>
 ■ShapeDeTriming.jsx v1.0 説明■</br>
-After Effects用のパレット型スクリプト。シェイプレイヤー内の長方形パスを基準に、コンポをトリミングし、元位置に再配置できる編集支援ツール。</br>
+シェイプレイヤー内の長方形パスを基準に、コンポをトリミングし、元位置に再配置できる編集支援ツール。</br>
 </br>
 ■主な機能■</br>
 情報取得：選択シェイプレイヤーのサイズ・位置・スケール等を表示。</br>
