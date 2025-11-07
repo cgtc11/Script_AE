@@ -128,7 +128,8 @@ Tested: Adobe After Effects 2022+</p>
 <ul>
   <li>v1.0.0：初版公開。保存・読込・適用・管理・灰色項目記録対応。</li>
 </ul>
-ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー<br>
+<hr>
+<hr>
 <h1>Universal Key Generator v1.0.0</h1>
 
 <p><strong>After Effects 用スクリプト</strong><br>
