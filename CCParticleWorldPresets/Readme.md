@@ -129,5 +129,3 @@ Tested: Adobe After Effects 2022+</p>
   <li>v1.0.0：初版公開。保存・読込・適用・管理・灰色項目記録対応。</li>
 </ul>
 <hr>
-<h2>著作者</h2>
-<p>@digimonkey_jp</p>
