@@ -1,3 +1,4 @@
+<img width="643" height="638" alt="FxCopyPasteTool" src="https://github.com/user-attachments/assets/686b728d-3867-4154-a8b2-c3c3a63517d1" />
 
 <section id="fxcopypastetool">
   <h1>FxCopyPasteTool.jsx 説明書</h1>
