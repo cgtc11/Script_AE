@@ -1,6 +1,6 @@
 
 <section id="digimonkey-toolkits">
-  <h1>AE / DCC ツールコレクション概要</h1>
+  <h1>AfterEffects Script</h1>
   <p>このリポジトリは After Effects を中心としたワークフロー用スクリプト群とユーティリティをまとめています。各フォルダは独立して利用できます。</p>
 
   <hr>
