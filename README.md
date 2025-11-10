@@ -21,7 +21,7 @@
   <h2 id="fxcopypastetool">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/FxCopyPasteTool">FxCopyPasteTool</a>
 　</h2>
-  <p><strong>目的:</strong> エフェクトを他コンポにペースト、置換えする。</p>
+  <p><strong>目的:</strong> エフェクトを他コンポにペースト、複数対応。置換えする。</p>
  
   <h2 id="o-tools">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/O-Tools">o-tools</a>
