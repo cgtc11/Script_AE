@@ -7,42 +7,9 @@
 
   <h2 id="ccparticleworldbirthrate">CCParticleWorldBirthRate</h2>
   <p><strong>目的:</strong> <code>CC Particle World</code> の <code>Birth Rate</code> をはじめとする選択プロパティへキー列を一括生成し、テスト用の発生量カーブをすばやく作る。</p>
-  <ul>
-    <li><strong>想定ファイル:</strong> <code>BirthRate Key Generator.jsx</code> など</li>
-    <li><strong>主な機能:</strong>
-      <ul>
-        <li>選択中レイヤーの選択中プロパティにキーフレームを自動打鍵</li>
-        <li>プリセットカーブの適用と値レンジの一括スケール</li>
-        <li>UI パネルから即時プレビュー</li>
-      </ul>
-    </li>
-    <li><strong>使い方:</strong>
-      <ol>
-        <li>対象レイヤーで <em>CC Particle World</em> を有効化し、値を付けたいプロパティを選択</li>
-        <li>本スクリプトを実行し、UI でカーブを選択して <em>Apply</em></li>
-      </ol>
-    </li>
-    <li><strong>テスト環境:</strong> After Effects 2022 以降</li>
-  </ul>
 
   <h2 id="ccparticleworldpresets">CCParticleWorldPresets</h2>
   <p><strong>目的:</strong> <code>CC Particle World</code> 一式の設定プリセットを管理し、保存・読み込み・一括適用を行う。</p>
-  <ul>
-    <li><strong>想定ファイル:</strong> <code>CCParticleWorldPresets.jsx</code>、<code>presets/*.json</code></li>
-    <li><strong>主な機能:</strong>
-      <ul>
-        <li>エフェクト全パラメータの JSON エクスポート/インポート</li>
-        <li>複数レイヤーへのバッチ適用</li>
-        <li>既存キー保持の上書き/無視の切替</li>
-      </ul>
-    </li>
-    <li><strong>使い方:</strong>
-      <ol>
-        <li>調整済みレイヤーを選択して <em>Save</em> で JSON へ保存</li>
-        <li>適用先レイヤーを選択して <em>Load</em> または <em>Apply to Selected</em></li>
-      </ol>
-    </li>
-  </ul>
 
   <h2 id="copipe">CoPiPe</h2>
   <p><strong>目的:</strong> 依存関係を縮小しつつコンポやレイヤーを別プロジェクトへ持ち回りするための「コピー・ペースト中継」ツール。</p>
