@@ -6,7 +6,9 @@
   <h2 id="ccparticleworldbirthrate"><link href="https://github.com/cgtc11/Script_AE/tree/main/CCParticleWorldBirthRate"> CCParticleWorldBirthRate</h2>
   <p><strong>目的:</strong> <code>CC Particle World</code> の <code>Birth Rate</code> をはじめとする選択プロパティへキー列を一括生成し、テスト用の発生量カーブをすばやく作る。</p>
 
-  <h2 id="ccparticleworldpresets">CCParticleWorldPresets</h2>
+  <h2 id="ccparticleworldpresets">
+  <a href="#ccparticleworldpresets">CCParticleWorldPresets</a>
+　</h2>
   <p><strong>目的:</strong> <code>CC Particle World</code> 一式の設定プリセットを管理し、保存・読み込み・一括適用を行う。</p>
 
   <h2 id="copipe">CoPiPe</h2>
