@@ -3,8 +3,8 @@
   <h1>AfterEffects Script</h1>
   <p>After Effectsで使用できるスクリプトをまとめてます</p>
   <hr>
-  https://github.com/cgtc11/Script_AE/tree/main/CCParticleWorldBirthRate
   <h2 id="ccparticleworldbirthrate">CCParticleWorldBirthRate</h2>
+  https://github.com/cgtc11/Script_AE/tree/main/CCParticleWorldBirthRate
   <p><strong>目的:</strong> <code>CC Particle World</code> の <code>Birth Rate</code> をはじめとする選択プロパティへキー列を一括生成し、テスト用の発生量カーブをすばやく作る。</p>
 
   <h2 id="ccparticleworldpresets">CCParticleWorldPresets</h2>
