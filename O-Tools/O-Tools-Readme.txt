@@ -1,5 +1,5 @@
 AfterEffects script.
-O_Tools_en_v1.5.7
+O_Tools_en_v1.5.7b
 -------------------------------------
 □□□How to install□□□
 -------------------------------------
