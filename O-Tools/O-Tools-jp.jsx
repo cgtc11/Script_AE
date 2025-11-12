@@ -476,14 +476,13 @@ T1_Btn_offset.onClick = function () {
     };
 
     //--------------------------------------------------
-    // 3. ◆-----◆ (ループ再生)
+    // 3. ◆-----◆◆ (ループ再生)
     //--------------------------------------------------
-    // グループのサイズを調整
     var btnLoop_Group = stopKeysGroup.add("group");
     btnLoop_Group.orientation = "row";
-    btnLoop_Group.alignment = "center";  // グループ全体を中央に配置
+    btnLoop_Group.alignment = "center";
 
-    var btnLoop = btnLoop_Group.add("button", undefined, "◆-----◆");
+    var btnLoop = btnLoop_Group.add("button", undefined, "◆-----◆◆");
     btnLoop.helpTip = "全体をLOOP再生（コンポ／連番フッテージ）";
     btnLoop.size = [80, 30];
     btnLoop.onClick = function () {
@@ -494,133 +493,137 @@ T1_Btn_offset.onClick = function () {
         var layers = comp.selectedLayers;
         if (!layers.length) { app.endUndoGroup(); return; }
 
-        var fr = comp.frameRate;
-        var oneFrame = 1 / fr;
-
-        for (var i = 0; i < layers.length; i++) {
-            var ly = layers[i];
-            var src = ly.source;
-            if (!src) { continue; }
-
-            // 連番フッテージ対応: FootageItem かつ isStill=false を許可
-            var loopOK = false;
-            var srcDur = 0;
-
-        if (src instanceof CompItem) {
-            loopOK = src.duration > 0;
-            srcDur = src.duration;
-        } else if (src instanceof FootageItem) {
-            try {
-                var ms = src.mainSource;
-                var isStill = (ms && typeof ms.isStill === "boolean") ? ms.isStill : false;
-                loopOK = (!isStill) && src.hasVideo && src.duration > 0;
-            } catch (e) {
-                loopOK = src.hasVideo && src.duration > 0;
-            }
-            if (loopOK) srcDur = src.duration;
+        function oneFrameSec(src, compFR){
+            try{ if (src instanceof CompItem && src.frameDuration>0) return src.frameDuration; }catch(e){}
+            try{ if (src instanceof FootageItem && src.mainSource && src.mainSource.frameDuration>0) return src.mainSource.frameDuration; }catch(e){}
+            return 1/(compFR||30);
         }
 
-        if (!loopOK) { continue; }
+        for (var i=0;i<layers.length;i++){
+            var ly = layers[i];
+            var src = ly.source;
+            if (!src) continue;
 
-        // タイムリマップ初期化
-        ly.timeRemapEnabled = true;
-        var remap = ly.property("ADBE Time Remapping");
-        for (var k = remap.numKeys; k >= 1; k--) { remap.removeKey(k); }
+            var ok=false, dur=0;
+            if (src instanceof CompItem){ ok = src.duration>0; dur = src.duration; }
+            else if (src instanceof FootageItem){
+                try{
+                    var ms = src.mainSource;
+                    var still = (ms && typeof ms.isStill==="boolean") ? ms.isStill : false;
+                    ok = !still && src.hasVideo && src.duration>0;
+                }catch(e){ ok = src.hasVideo && src.duration>0; }
+                if (ok) dur = src.duration;
+            }
+            if (!ok) continue;
 
-        // 再度ONでクリーンに
-        ly.timeRemapEnabled = true;
-        remap = ly.property("ADBE Time Remapping");
+            var of = oneFrameSec(src, comp.frameRate);
+            var endVal = Math.max(dur - of, of); // 終端-1F（最低1F幅）
+            var span   = endVal;                  // 進行区間
 
-        // 2キー構成: In と (In + srcDur - 1F)
-        var startT = ly.inPoint;
-        var endT = startT + Math.max(srcDur - oneFrame, oneFrame); // 最低でも1F幅
-        remap.addKey(startT);
-        remap.addKey(endT);
+            // クリア
+            ly.timeRemapEnabled = true;
+            var remap = ly.property("ADBE Time Remapping");
+            for (var k=remap.numKeys;k>=1;k--) remap.removeKey(k);
+            ly.timeRemapEnabled = true;
+            remap = ly.property("ADBE Time Remapping");
 
-        // 余計なキー排除（安全策）
-        while (remap.numKeys > 2) { remap.removeKey(3); }
+            // 0 → 終端-1F → 0(即戻し)
+            var t1 = ly.startTime;
+            var t2 = t1 + span;
+            var t3 = t2 + of; // 1Fだけ進めて瞬間ジャンプ
 
-        // ループ式
-        remap.expression =
-            'loopOut("cycle");\n' +
-            'if(time==key(numKeys).time){key(1)}else{loopOut("cycle");};';
-        remap.expressionEnabled = true;
+            remap.addKey(t1); remap.setValueAtKey(1, 0);
+            remap.addKey(t2); remap.setValueAtKey(2, endVal);
+            remap.addKey(t3); remap.setValueAtKey(3, 0);
+
+            // 補間: 1→2 はリニア、2 はホールド、2→3 は即戻し
+            remap.setInterpolationTypeAtKey(1, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR);
+            remap.setInterpolationTypeAtKey(2, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR);
+            remap.setInterpolationTypeAtKey(3, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR);
+
+            remap.expression = 'loopOut(type = "cycle", numKeyframes = 0);';
+            remap.expressionEnabled = true;
         }
         app.endUndoGroup();
     };
 
-
-
     //--------------------------------------------------
     // 4. ◆--L-◆◆ (マーカーを利用してループ設定)
     //--------------------------------------------------
-    // グループのサイズを調整
     var btnLoopMarkers_Group = stopKeysGroup.add("group");
     btnLoopMarkers_Group.orientation = "row";
-    btnLoopMarkers_Group.alignment = "center";  // グループ全体を中央に配置
+    btnLoopMarkers_Group.alignment = "center";
 
     var btnLoopMarkers = btnLoopMarkers_Group.add("button", undefined, "◆--L-◆◆");
     btnLoopMarkers.helpTip = "LOOPマーカー利用";
     btnLoopMarkers.size = [80, 30];
     btnLoopMarkers.onClick = function () {
-    app.beginUndoGroup("MarkerBasedLoopByName");
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) {
-        app.endUndoGroup();
-        return;
-    }
-    var layers = comp.selectedLayers;
-    if (!layers.length) {
-        app.endUndoGroup();
-        return;
-    }
+        app.beginUndoGroup("MarkerBasedLoopByName");
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) { app.endUndoGroup(); return; }
 
-    for (var i = 0; i < layers.length; i++) {
-        var ly = layers[i];
-        if (!(ly.source instanceof CompItem)) continue;
+        var layers = comp.selectedLayers;
+        if (!layers.length) { app.endUndoGroup(); return; }
 
-        var markerProp = ly.source.markerProperty;
-        var loopMarkerTime = null;
+        function oneFrameSec(src, compFR){
+            try{ if (src instanceof CompItem && src.frameDuration>0) return src.frameDuration; }catch(e){}
+            return 1/(compFR||30);
+        }
 
-        for (var m = 1; m <= markerProp.numKeys; m++) {
-            var comment = markerProp.keyValue(m).comment.toLowerCase();
-            if (comment.indexOf("loop") !== -1 || comment === "l") {
-                loopMarkerTime = markerProp.keyTime(m);
-                break;
+        for (var i=0;i<layers.length;i++){
+            var ly = layers[i];
+            var src = ly.source;
+            if (!(src instanceof CompItem)) continue;
+
+            var markerProp = src.markerProperty;
+            if (!markerProp || markerProp.numKeys===0){ alert("マーカーなし: "+ly.name); continue; }
+
+            var L = null;
+            for (var m=1;m<=markerProp.numKeys;m++){
+                var v = markerProp.keyValue(m);
+                var c = (v && v.comment) ? String(v.comment).toLowerCase() : "";
+                if (c.indexOf("loop")!==-1 || c==="l"){ L = markerProp.keyTime(m); break; }
             }
+            if (L===null){ alert("“LOOP”系マーカー未検出: "+ly.name); continue; }
+
+            var of = oneFrameSec(src, comp.frameRate);
+            var endVal = Math.max(src.duration - of, of); // 終端-1F
+            var Lval   = Math.max(L, 0);                  // ループ基準
+
+            // 区間長（時刻側も値側と一致させて等速）
+            var span1 = Math.max(Lval, of);                 // 0 → L
+            var span2 = Math.max(endVal - Lval, of);        // L → 終端-1F
+
+            // クリア
+            ly.timeRemapEnabled = true;
+            var remap = ly.property("ADBE Time Remapping");
+            for (var k=remap.numKeys;k>=1;k--) remap.removeKey(k);
+            ly.timeRemapEnabled = true;
+            remap = ly.property("ADBE Time Remapping");
+
+            // 0 → L → 終端-1F → L(即戻し)
+            var t1 = ly.startTime;
+            var t2 = t1 + span1;
+            var t3 = t2 + span2;
+            var t4 = t3 + of; // 1Fだけ進めて瞬間ジャンプ
+
+            remap.addKey(t1); remap.setValueAtKey(1, 0);
+            remap.addKey(t2); remap.setValueAtKey(2, Lval);
+            remap.addKey(t3); remap.setValueAtKey(3, endVal);
+            remap.addKey(t4); remap.setValueAtKey(4, Lval);
+
+            // 補間設定
+            remap.setInterpolationTypeAtKey(1, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR); // 0→L
+            remap.setInterpolationTypeAtKey(2, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR); // L→end-1F
+            remap.setInterpolationTypeAtKey(3, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR); // end-1F→L は即戻し
+            remap.setInterpolationTypeAtKey(4, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR);
+
+            remap.expression = 'loopOut(type = "cycle", numKeyframes = 2);';
+            remap.expressionEnabled = true;
         }
+        app.endUndoGroup();
+    };
 
-        if (loopMarkerTime === null) {
-            alert("“LOOP”と名のつくマーカーが見つかりません");
-            app.endUndoGroup();
-            return;
-        }
-
-        // タイムリマップ処理
-        ly.timeRemapEnabled = true;
-        var remap = ly.property("ADBE Time Remapping");
-        for (var k = remap.numKeys; k >= 1; k--) {
-            remap.removeKey(k);
-        }
-
-        ly.timeRemapEnabled = true;
-        remap = ly.property("ADBE Time Remapping");
-
-        remap.addKey(ly.inPoint); // スタート地点
-        remap.addKey(ly.inPoint + loopMarkerTime); // LOOP地点
-        var lastTime = ly.inPoint + ly.source.duration - 1 / comp.frameRate;
-	remap.addKey(lastTime); // 最後から1F手前
-	remap.setValueAtKey(4, remap.valueAtTime(ly.inPoint + loopMarkerTime, false));// LOOPre
-
-        remap.expression =
-            'loopOut(type = "cycle", numKeyframes = 2)';
-
-        remap.expressionEnabled = true;
-    }
-
-    app.endUndoGroup();
-
-};
     var stopKeysLabel = stopKeysGroup.add("statictext", undefined, "------------------------------------");
 }
 

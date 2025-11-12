@@ -38,7 +38,7 @@ Shift the selected key's value by the entered amount.
 
 ★"-------■"　After playback, keep displaying the last frame.
 
-★"◆-----◆"　Loop playback for the entire sequence.
+★"◆----◆◆"　Loop playback for the entire sequence.
 
 ★"◆--L-◆◆"　L,l,LOOP,Loop If there is a marker, LOOP playback from there to the end.
 

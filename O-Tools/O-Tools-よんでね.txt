@@ -39,7 +39,7 @@ C:\Program Files\Adobe\Adobe After Effects ＜各バージョンNo＞\Support Fi
 
 ★"-------■"　再生後、最後の絵を表示したままにする
 
-★"◆-----◆"　全体をループ再生
+★"◆----◆◆"　全体をループ再生
 
 ★"◆--L-◆◆"　L,l,LOOP,Loopマーカーがあればそこから最後迄をLOOP再生
 
