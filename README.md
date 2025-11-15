@@ -31,7 +31,7 @@
   <h2 id="shapedetriming">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/ShapeDeTriming">ShapeDeTriming</a>
 　</h2>
-  <p><strong>目的:</strong> シェイプレイヤーでトリミングする</p>
+  <p><strong>目的:</strong> シェイプレイヤーで囲ってる範囲をトリミングする</p>
  
   <h2 id="support">問い合わせ</h2>
   <p>Issue へ再現手順と AE バージョン、OS、使用エフェクト名を記載してください。</p>
