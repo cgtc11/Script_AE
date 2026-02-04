@@ -5,8 +5,8 @@
         return;
     }
 
-    // ウィンドウタイトルを「Fit to Comp Smart」に変更
-    var win = new Window("palette", "Fit to Comp Smart", undefined);
+    // ウィンドウタイトル
+    var win = new Window("palette", "Fit to Comp Smart v2", undefined);
     win.orientation = "column";
     win.alignChildren = ["fill", "top"];
 
@@ -15,10 +15,22 @@
     panel.alignChildren = ["left", "top"];
 
     var rb1 = panel.add("radiobutton", undefined, "方法1：スケールで合わせる（中央配置・画面覆う）");
-    var rb2 = panel.add("radiobutton", undefined, "方法2：平面・シェイプの中身をコンポサイズにする");
+    var rb2 = panel.add("radiobutton", undefined, "方法2：中身(ソース)をコンポサイズにする");
     
-    // 方法1をデフォルトにする
+    // 方法2のオプション（インデントして配置）
+    var grpOption = panel.add("group");
+    grpOption.margins = [20, 0, 0, 0]; // インデント
+    var chkNew = grpOption.add("checkbox", undefined, "新規平面を作成して置き換え (共有回避)");
+    chkNew.helpTip = "チェックを入れると、元の平面ソースを変更せず、新しい平面を作成して置き換えます。\nチェックなしだと、元の平面のサイズを変更します（同じ平面を使っている全レイヤーに影響します）。";
+
+    // 初期状態
     rb1.value = true;
+    chkNew.value = false;
+    chkNew.enabled = false; // 最初はRB1なので無効化
+
+    // UI制御
+    rb1.onClick = function() { chkNew.enabled = false; };
+    rb2.onClick = function() { chkNew.enabled = true; };
 
     var btn = win.add("button", undefined, "実行");
 
@@ -80,7 +92,7 @@
             return;
         }
 
-        app.beginUndoGroup("Fit to Comp Smart"); // Undo名も合わせました
+        app.beginUndoGroup("Fit to Comp Smart");
 
         var compW = comp.width;
         var compH = comp.height;
@@ -89,6 +101,7 @@
         try {
             for (var i = 0; i < layers.length; i++) {
                 var layer = layers[i];
+                // AVLayer(平面含む) または ShapeLayer 以外はスキップ
                 if (!(layer instanceof AVLayer) && !(layer instanceof ShapeLayer)) continue;
 
                 // 共通：スケール合わせ用関数（フォールバック用）
@@ -96,9 +109,13 @@
                     var rect = layer.sourceRectAtTime(now, false);
                     if (rect.width === 0 || rect.height === 0) return;
 
-                    var sx = Math.ceil((compW / rect.width) * 100);
-                    var sy = Math.ceil((compH / rect.height) * 100);
+                    var sx = (compW / rect.width) * 100;
+                    var sy = (compH / rect.height) * 100;
 
+                    // 画面を覆うように大きい方に合わせるなら Math.max、収めるなら Math.min
+                    // ここでは元のロジック「画面覆う」に準拠して別々に計算していますが、
+                    // もしアスペクト比維持したい場合はロジック調整が必要。現在はFill(Stretch)気味の動作。
+                    
                     if (layer.threeDLayer) S(layer).setValue([sx, sy, 100]);
                     else S(layer).setValue([sx, sy]);
                     
@@ -115,17 +132,43 @@
                 if (rb2.value) {
                     // A. 平面・調整レイヤー
                     if (isResizableSource(layer)) {
-                        var src = layer.source;
-                        src.width = compW;
-                        src.height = compH;
-                        src.pixelAspect = comp.pixelAspect;
+                        
+                        // ★ 新規作成して置き換え (チェックありの場合)
+                        if (chkNew.value) {
+                            var oldSrc = layer.source;
+                            var newColor = [0.5, 0.5, 0.5];
+                            var oldName = layer.name;
+                            
+                            // 元の色を取得
+                            if (oldSrc.mainSource && oldSrc.mainSource.color) {
+                                newColor = oldSrc.mainSource.color;
+                            }
 
+                            // 一時的に新規平面を作成してソースを取得
+                            // 名前は現在のレイヤー名を引き継ぐ
+                            var tempLayer = comp.layers.addSolid(newColor, oldName, compW, compH, comp.pixelAspect, comp.duration);
+                            var newSrc = tempLayer.source;
+                            tempLayer.remove(); // レイヤー自体は不要なので削除
+
+                            // ソースを置き換え
+                            layer.replaceSource(newSrc, false);
+                        } 
+                        // ★ 既存ソースをリサイズ (チェックなしの場合)
+                        else {
+                            var src = layer.source;
+                            src.width = compW;
+                            src.height = compH;
+                            src.pixelAspect = comp.pixelAspect;
+                        }
+
+                        // スケールを100%にリセットして位置合わせ
                         if (layer.threeDLayer) S(layer).setValue([100, 100, 100]);
                         else S(layer).setValue([100, 100]);
 
                         centerLayer(layer, compW, compH, now);
                     } 
                     // B. シェイプレイヤー (長方形 or 楕円)
+                    // ※シェイプはインスタンスごとの保持なので「新規作成」の概念は適用せず、常にパスサイズ変更を行う
                     else if (layer instanceof ShapeLayer) {
                         var contents = layer.property("ADBE Root Vectors Group");
                         var isResized = findAndSetShapeSize(contents, compW, compH);
@@ -138,7 +181,7 @@
                             fitScale();
                         }
                     }
-                    // C. その他
+                    // C. その他 (画像素材などリサイズできないもの)
                     else {
                          fitScale();
                     }
