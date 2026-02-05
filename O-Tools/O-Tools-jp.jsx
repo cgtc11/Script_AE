@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.7b by Digimonkey
+// O_Tools V1.5.8a by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -8,8 +8,15 @@ var myPanel = (thisObj instanceof Panel)
     : new Window("palette", "oTools", undefined, { resizeable: true });
 
 function buildUI(panel) {
+    panel.orientation = "column";
+    panel.alignChildren = ["fill", "fill"];
+
     var tabPanel = panel.add("tabbedpanel");
-    tabPanel.size = [290, 512];
+    tabPanel.alignment = ["fill", "fill"];
+    tabPanel.alignChildren = ["fill", "fill"];
+
+    tabPanel.preferredSize = [290, 512];   // 初期サイズ（固定じゃない）
+   // tabPanel.minimumSize   = [290, 300];   // 最低限
 
     // --- 各タブを作成 ---
     var tab1 = tabPanel.add("tab", undefined, "Na");
@@ -44,14 +51,23 @@ tabPanel.onChange = function () {
     tabPanel.selection = tab1;
     tab1.text = "NameEd";
 
+    panel.onResizing = panel.onResize = function () {
+        this.layout.resize();
+    };
+
+    panel.layout.layout(true);
     return panel;
 }
-
 
     // ◆◆NameEdTAB◆◆
 
 
 function buildNameEdUI(panel) {
+    // --- このTAB内のレイアウト方針 ---
+    // 上のUIは固定（top）、outputFieldだけ縦横ともに伸縮（fill, fill）
+    panel.orientation  = "column";
+    panel.alignChildren = ["fill", "top"];
+
     var mode = "name"; // "name" or "comment"
 
     function getSelectedItemsData() {
@@ -60,7 +76,10 @@ function buildNameEdUI(panel) {
         var data = [];
 
         for (var i = 0; i < selectedItems.length; i++) {
-            if (selectedItems[i] instanceof CompItem || selectedItems[i] instanceof FootageItem || selectedItems[i] instanceof FolderItem) {
+            if (selectedItems[i] instanceof CompItem ||
+                selectedItems[i] instanceof FootageItem ||
+                selectedItems[i] instanceof FolderItem) {
+
                 if (mode === "name") {
                     data.push(selectedItems[i].name);
                 } else if (mode === "comment") {
@@ -68,7 +87,6 @@ function buildNameEdUI(panel) {
                 }
             }
         }
-
         return data.join("\n");
     }
 
@@ -83,7 +101,6 @@ function buildNameEdUI(panel) {
                 data.push(selectedLayers[i].comment);
             }
         }
-
         return data.join("\n");
     }
 
@@ -95,7 +112,10 @@ function buildNameEdUI(panel) {
 
         for (var i = 0; i < selectedItems.length; i++) {
             if (j < newDataArray.length) {
-                if (selectedItems[i] instanceof CompItem || selectedItems[i] instanceof FootageItem || selectedItems[i] instanceof FolderItem) {
+                if (selectedItems[i] instanceof CompItem ||
+                    selectedItems[i] instanceof FootageItem ||
+                    selectedItems[i] instanceof FolderItem) {
+
                     if (mode === "name") {
                         selectedItems[i].name = newDataArray[j];
                     } else if (mode === "comment") {
@@ -124,8 +144,11 @@ function buildNameEdUI(panel) {
         }
     }
 
+    // --- ラジオ（名前/コメント） ---
     var radioGroup = panel.add("group", undefined);
     radioGroup.orientation = "row";
+    radioGroup.alignment = ["fill", "top"];
+
     var nameRadio = radioGroup.add("radiobutton", undefined, "名前");
     var commentRadio = radioGroup.add("radiobutton", undefined, "コメント");
 
@@ -133,32 +156,46 @@ function buildNameEdUI(panel) {
     nameRadio.onClick = function () { mode = "name"; };
     commentRadio.onClick = function () { mode = "comment"; };
 
+    // --- 取得/更新ボタン ---
     var buttonGroup = panel.add("group", undefined);
     buttonGroup.orientation = "row";
+    buttonGroup.alignment = ["fill", "top"];
+
     var getButton = buttonGroup.add("button", undefined, "取得");
     getButton.helpTip = "選択されたアイテムの名前またはコメントを取得します";
+
     var updateButton = buttonGroup.add("button", undefined, "更新");
     updateButton.helpTip = "テキストフィールドのデータで選択されたアイテムを更新します";
 
+    // --- 置換 ---
     var replaceGroup = panel.add("group", undefined);
     replaceGroup.orientation = "row";
+    replaceGroup.alignment = ["fill", "top"];
+
     var oldTextField = replaceGroup.add("edittext", undefined, "");
     var newTextField = replaceGroup.add("edittext", undefined, "");
     var replaceButton = replaceGroup.add("button", undefined, "置換");
     replaceButton.helpTip = "指定されたテキストを新しいテキストに置き換えます";
 
-    oldTextField.size = [60, 20];
-    newTextField.size = [60, 20];
+    // 置換欄は固定幅のまま（ここは伸ばさない）
+    oldTextField.preferredSize = [60, 20];
+    newTextField.preferredSize = [60, 20];
 
+    // --- ★出力欄：ここだけ伸縮させる ---
+    // scrolling:true を付けると、長文時にスクロールが安定します
+    var outputField = panel.add("edittext", undefined, "", { multiline: true, scrolling: true });
+    outputField.alignment = ["fill", "fill"];        // ★縦横に伸びる
+    outputField.minimumSize = [200, 120];           // ★縮みすぎ防止（任意）
+    outputField.preferredSize = [200, 300];         // 初期サイズ（元の size に近い）
+
+    // --- 置換処理 ---
     replaceButton.onClick = function () {
         var currentData = outputField.text;
         var replacedData = currentData.replace(new RegExp(oldTextField.text, 'g'), newTextField.text);
         outputField.text = replacedData;
     };
 
-    var outputField = panel.add("edittext", undefined, "", { multiline: true });
-    outputField.size = [200, 300];
-
+    // --- 取得処理 ---
     getButton.onClick = function () {
         var comp = app.project.activeItem;
         var projectData = getSelectedItemsData();
@@ -175,6 +212,7 @@ function buildNameEdUI(panel) {
         outputField.text = combinedData.join("\n");
     };
 
+    // --- 更新処理 ---
     updateButton.onClick = function () {
         updateSelectedItemsData(outputField.text);
 
@@ -183,7 +221,14 @@ function buildNameEdUI(panel) {
             updateSelectedLayersData(comp, outputField.text);
         }
     };
+
+    // --- このTABがリサイズされたらレイアウト更新 ---
+    // （上位のpanel側で一括処理しているなら、これは無くてもOK）
+    panel.onResizing = panel.onResize = function () {
+        this.layout.resize();
+    };
 }
+
 
     // ◆◆TReMapTAB◆◆
 
@@ -1069,6 +1114,201 @@ function buildCombined2UI(panel) {
 
     // 改行を挿入
     panel.add("statictext", undefined, "----------------------------------------------");
+
+
+    // ★★★★★平面をコンポに合わせる★★★★★
+
+    // 見出し
+    panel.add("statictext", undefined, "平面をコンポに合わせる");
+
+    // UIブロック
+    var fitGrp = panel.add("panel", undefined, "方法選択");
+    fitGrp.orientation = "column";
+    fitGrp.alignChildren = ["left", "top"];
+
+    var fitRb1 = fitGrp.add("radiobutton", undefined, "方法1：スケールで合わせ");
+    var fitRb2 = fitGrp.add("radiobutton", undefined, "方法2：ソースを合わせる");
+
+    // 方法2のオプション（インデント）
+    var fitOptGrp = fitGrp.add("group");
+    fitOptGrp.margins = [20, 0, 0, 0];
+    var fitChkNew = fitOptGrp.add("checkbox", undefined, "新規置換え");
+    fitChkNew.helpTip =
+        "チェックを入れると、元の平面ソースを変更せず、新しい平面を作成して置き換えます。\n" +
+        "チェックなしだと、元の平面のサイズを変更します（同じ平面を使っている全レイヤーに影響します）。";
+
+    // 初期状態
+    fitRb1.value = true;
+    fitChkNew.value = false;
+    fitChkNew.enabled = false;
+
+    // UI制御
+    fitRb1.onClick = function () { fitChkNew.enabled = false; };
+    fitRb2.onClick = function () { fitChkNew.enabled = true; };
+
+    // 実行ボタン
+    var fitBtn = panel.add("button", undefined, "実行");
+
+    // ---- ここから処理関数群 ----
+    function __T(layer) { return layer.property("ADBE Transform Group"); }
+    function __P(layer) { return __T(layer).property("ADBE Position"); }
+    function __S(layer) { return __T(layer).property("ADBE Scale"); }
+    function __A(layer) { return __T(layer).property("ADBE Anchor Point"); }
+
+    function __isResizableSource(layer) {
+        try {
+            return layer.source && layer.source.mainSource && (layer.source.mainSource instanceof SolidSource);
+        } catch (e) { return false; }
+    }
+
+    function __centerLayer(layer, compW, compH, time) {
+        var rect = layer.sourceRectAtTime(time, false);
+        var centerX = rect.left + rect.width / 2;
+        var centerY = rect.top + rect.height / 2;
+
+        if (layer.threeDLayer) {
+            var currP = __P(layer).value;
+            __A(layer).setValue([centerX, centerY, 0]);
+            __P(layer).setValue([compW / 2, compH / 2, currP[2]]);
+        } else {
+            __A(layer).setValue([centerX, centerY]);
+            __P(layer).setValue([compW / 2, compH / 2]);
+        }
+    }
+
+    // シェイプ内の長方形・楕円サイズを再帰的に探して変更
+    function __findAndSetShapeSize(propParent, w, h) {
+        var foundAndSet = false;
+
+        for (var i = 1; i <= propParent.numProperties; i++) {
+            var prop = propParent.property(i);
+
+            if (prop.matchName === "ADBE Vector Rect Size" || prop.matchName === "ADBE Vector Ellipse Size") {
+                prop.setValue([w, h]);
+                foundAndSet = true;
+            } else if (prop.numProperties > 0) {
+                if (__findAndSetShapeSize(prop, w, h)) foundAndSet = true;
+            }
+        }
+        return foundAndSet;
+    }
+
+    // ---- 実行処理 ----
+    fitBtn.onClick = function () {
+        var comp = app.project.activeItem;
+        if (!(comp && comp instanceof CompItem)) {
+            alert("コンポジションをアクティブにしてください。");
+            return;
+        }
+
+        var layers = comp.selectedLayers;
+        if (!layers || layers.length === 0) {
+            alert("レイヤーを選択してください。");
+            return;
+        }
+
+        app.beginUndoGroup("Fit to Comp Smart");
+
+        var compW = comp.width;
+        var compH = comp.height;
+        var now = comp.time;
+
+        try {
+            for (var i = 0; i < layers.length; i++) {
+                var layer = layers[i];
+
+                // AVLayer(平面含む) または ShapeLayer 以外はスキップ
+                if (!(layer instanceof AVLayer) && !(layer instanceof ShapeLayer)) continue;
+
+                // 共通：スケール合わせ（フォールバック）
+                var fitScale = function () {
+                    var rect = layer.sourceRectAtTime(now, false);
+                    if (rect.width === 0 || rect.height === 0) return;
+
+                    var sx = (compW / rect.width) * 100;
+                    var sy = (compH / rect.height) * 100;
+
+                    if (layer.threeDLayer) __S(layer).setValue([sx, sy, 100]);
+                    else __S(layer).setValue([sx, sy]);
+
+                    __centerLayer(layer, compW, compH, now);
+                };
+
+                // 方法1：すべてスケールで合わせる
+                if (fitRb1.value) {
+                    fitScale();
+                    continue;
+                }
+
+                // 方法2：中身サイズを変更する
+                if (fitRb2.value) {
+                    // A. 平面・調整レイヤー
+                    if (__isResizableSource(layer)) {
+
+                        // ★ 新規作成して置き換え（共有回避）
+                        if (fitChkNew.value) {
+                            var oldSrc = layer.source;
+                            var newColor = [0.5, 0.5, 0.5];
+                            var oldName = layer.name;
+
+                            if (oldSrc.mainSource && oldSrc.mainSource.color) {
+                                newColor = oldSrc.mainSource.color;
+                            }
+
+                            // 一時的に新規平面を作ってソース取得
+                            var tempLayer = comp.layers.addSolid(newColor, oldName, compW, compH, comp.pixelAspect, comp.duration);
+                            var newSrc = tempLayer.source;
+                            tempLayer.remove();
+
+                            // ソース差し替え
+                            layer.replaceSource(newSrc, false);
+                        }
+                        // ★ 既存ソースをリサイズ（共有あり）
+                        else {
+                            var src = layer.source;
+                            src.width = compW;
+                            src.height = compH;
+                            src.pixelAspect = comp.pixelAspect;
+                        }
+
+                        // スケールを100%に戻して中央へ
+                        if (layer.threeDLayer) __S(layer).setValue([100, 100, 100]);
+                        else __S(layer).setValue([100, 100]);
+
+                        __centerLayer(layer, compW, compH, now);
+                    }
+                    // B. シェイプレイヤー（長方形/楕円）
+                    else if (layer instanceof ShapeLayer) {
+                        var contents = layer.property("ADBE Root Vectors Group");
+                        var isResized = __findAndSetShapeSize(contents, compW, compH);
+
+                        if (isResized) {
+                            if (layer.threeDLayer) __S(layer).setValue([100, 100, 100]);
+                            else __S(layer).setValue([100, 100]);
+
+                            __centerLayer(layer, compW, compH, now);
+                        } else {
+                            fitScale();
+                        }
+                    }
+                    // C. その他（画像など）
+                    else {
+                        fitScale();
+                    }
+                }
+            }
+        } catch (e) {
+            alert("Fit to Comp Smart でエラー:\n" + e.toString());
+        } finally {
+            app.endUndoGroup();
+        }
+    };
+
+
+
+    // 改行を挿入
+    panel.add("statictext", undefined, "----------------------------------------------");
+
 }
 
 

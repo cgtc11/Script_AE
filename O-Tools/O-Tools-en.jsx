@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.7b by Digimonkey
+// O_Tools V1.5.8a by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -8,8 +8,15 @@ var myPanel = (thisObj instanceof Panel)
     : new Window("palette", "oTools", undefined, { resizeable: true });
 
 function buildUI(panel) {
+    panel.orientation = "column";
+    panel.alignChildren = ["fill", "fill"];
+
     var tabPanel = panel.add("tabbedpanel");
-    tabPanel.size = [290, 512];
+    tabPanel.alignment = ["fill", "fill"];
+    tabPanel.alignChildren = ["fill", "fill"];
+
+    tabPanel.preferredSize = [290, 512];   // Initial size (not fixed)
+   // tabPanel.minimumSize   = [290, 300];   // at the very least
 
     // --- Create each tab ---
     var tab1 = tabPanel.add("tab", undefined, "Na");
@@ -44,15 +51,23 @@ function buildUI(panel) {
     tabPanel.selection = tab1;
     tab1.text = "NameEd";
 
+    panel.onResizing = panel.onResize = function () {
+        this.layout.resize();
+    };
+
+    panel.layout.layout(true);
     return panel;
 }
 
-
-// ◆◆NameEd TAB◆◆
-
+    // ◆◆NameEdTAB◆◆
 
 
 function buildNameEdUI(panel) {
+    // --- Layout Guidelines for This TAB ---
+    // The top UI is fixed (top), while only the outputField is stretchable both vertically and horizontally (fill, fill).
+    panel.orientation  = "column";
+    panel.alignChildren = ["fill", "top"];
+
     var mode = "name"; // "name" or "comment"
 
     function getSelectedItemsData() {
@@ -61,7 +76,10 @@ function buildNameEdUI(panel) {
         var data = [];
 
         for (var i = 0; i < selectedItems.length; i++) {
-            if (selectedItems[i] instanceof CompItem || selectedItems[i] instanceof FootageItem || selectedItems[i] instanceof FolderItem) {
+            if (selectedItems[i] instanceof CompItem ||
+                selectedItems[i] instanceof FootageItem ||
+                selectedItems[i] instanceof FolderItem) {
+
                 if (mode === "name") {
                     data.push(selectedItems[i].name);
                 } else if (mode === "comment") {
@@ -69,7 +87,6 @@ function buildNameEdUI(panel) {
                 }
             }
         }
-
         return data.join("\n");
     }
 
@@ -84,7 +101,6 @@ function buildNameEdUI(panel) {
                 data.push(selectedLayers[i].comment);
             }
         }
-
         return data.join("\n");
     }
 
@@ -96,7 +112,10 @@ function buildNameEdUI(panel) {
 
         for (var i = 0; i < selectedItems.length; i++) {
             if (j < newDataArray.length) {
-                if (selectedItems[i] instanceof CompItem || selectedItems[i] instanceof FootageItem || selectedItems[i] instanceof FolderItem) {
+                if (selectedItems[i] instanceof CompItem ||
+                    selectedItems[i] instanceof FootageItem ||
+                    selectedItems[i] instanceof FolderItem) {
+
                     if (mode === "name") {
                         selectedItems[i].name = newDataArray[j];
                     } else if (mode === "comment") {
@@ -125,41 +144,58 @@ function buildNameEdUI(panel) {
         }
     }
 
+    // --- Radio (Name/Comment) ---
     var radioGroup = panel.add("group", undefined);
     radioGroup.orientation = "row";
+    radioGroup.alignment = ["fill", "top"];
+
     var nameRadio = radioGroup.add("radiobutton", undefined, "Name");
-    var commentRadio = radioGroup.add("radiobutton", undefined, "Comment");
+    var commentRadio = radioGroup.add("radiobutton", undefined, "Comments");
 
     nameRadio.value = true;
     nameRadio.onClick = function () { mode = "name"; };
     commentRadio.onClick = function () { mode = "comment"; };
 
+    // --- Get/Update button ---
     var buttonGroup = panel.add("group", undefined);
     buttonGroup.orientation = "row";
-    var getButton = buttonGroup.add("button", undefined, "Get");
-    getButton.helpTip = "Retrieves the name or comment of the selected item";
-    var updateButton = buttonGroup.add("button", undefined, "Update");
-    updateButton.helpTip = "Update selected items with data in text field";
+    buttonGroup.alignment = ["fill", "top"];
 
+    var getButton = buttonGroup.add("button", undefined, "Get");
+    getButton.helpTip = "Retrieve the name or comment of the selected item.";
+
+    var updateButton = buttonGroup.add("button", undefined, "Update");
+    updateButton.helpTip = "Updates the selected item in the text field data.";
+
+    // --- Replace ---
     var replaceGroup = panel.add("group", undefined);
     replaceGroup.orientation = "row";
+    replaceGroup.alignment = ["fill", "top"];
+
     var oldTextField = replaceGroup.add("edittext", undefined, "");
     var newTextField = replaceGroup.add("edittext", undefined, "");
     var replaceButton = replaceGroup.add("button", undefined, "Replace");
-    replaceButton.helpTip = "Replaces the specified text with the new text";
+    replaceButton.helpTip = "Replace the specified text with new text.";
 
-    oldTextField.size = [60, 20];
-    newTextField.size = [60, 20];
+    // The replacement field remains fixed width (do not expand here)
+    oldTextField.preferredSize = [60, 20];
+    newTextField.preferredSize = [60, 20];
 
+    // ★Output Field: Only this section can be resized
+    // Setting scrolling:true stabilizes scrolling for long texts.
+    var outputField = panel.add("edittext", undefined, "", { multiline: true, scrolling: true });
+    outputField.alignment = ["fill", "fill"];        // ★Expanding in all directions
+    outputField.minimumSize = [200, 120];           // ★Prevent excessive shrinkage (optional)
+    outputField.preferredSize = [200, 300];         // Initial size (close to the original size)
+
+    // --- Replacement Processing ---
     replaceButton.onClick = function () {
         var currentData = outputField.text;
         var replacedData = currentData.replace(new RegExp(oldTextField.text, 'g'), newTextField.text);
         outputField.text = replacedData;
     };
 
-    var outputField = panel.add("edittext", undefined, "", { multiline: true });
-    outputField.size = [200, 300];
-
+    // --- Acquisition Processing ---
     getButton.onClick = function () {
         var comp = app.project.activeItem;
         var projectData = getSelectedItemsData();
@@ -176,6 +212,7 @@ function buildNameEdUI(panel) {
         outputField.text = combinedData.join("\n");
     };
 
+    // --- Update Processing ---
     updateButton.onClick = function () {
         updateSelectedItemsData(outputField.text);
 
@@ -183,6 +220,12 @@ function buildNameEdUI(panel) {
         if (comp && comp instanceof CompItem) {
             updateSelectedLayersData(comp, outputField.text);
         }
+    };
+
+    // --- Update layout when this TAB is resized ---
+    // (If handled collectively by the parent panel, this can be omitted)
+    panel.onResizing = panel.onResize = function () {
+        this.layout.resize();
     };
 }
 
@@ -1182,8 +1225,203 @@ centerButton.onClick = function () {
     app.endUndoGroup();
 };
 
-// Insert line break
-panel.add("statictext", undefined, "----------------------------------------------");
+    // Insert line break
+    panel.add("statictext", undefined, "----------------------------------------------");
+
+
+    // ★★★★★Align the plane with the component★★★★★
+
+    // Headline
+    panel.add("statictext", undefined, "Composize the plane");
+
+    // UI Block
+    var fitGrp = panel.add("panel", undefined, "Method Selection");
+    fitGrp.orientation = "column";
+    fitGrp.alignChildren = ["left", "top"];
+
+    var fitRb1 = fitGrp.add("radiobutton", undefined, "1: Adjust using the scale");
+    var fitRb2 = fitGrp.add("radiobutton", undefined, "2: Combine the sauces");
+
+    // Method 2 Option (Indentation)
+    var fitOptGrp = fitGrp.add("group");
+    fitOptGrp.margins = [20, 0, 0, 0];
+    var fitChkNew = fitOptGrp.add("checkbox", undefined, "New Replace");
+    fitChkNew.helpTip =
+        "When you check this box, a new plane will be created and used as a replacement without modifying the original plane source.\n" +
+        "If unchecked, it changes the size of the original plane (affecting all layers using the same plane).";
+
+    // Initial state
+    fitRb1.value = true;
+    fitChkNew.value = false;
+    fitChkNew.enabled = false;
+
+    // UI control
+    fitRb1.onClick = function () { fitChkNew.enabled = false; };
+    fitRb2.onClick = function () { fitChkNew.enabled = true; };
+
+    // Execute Button
+    var fitBtn = panel.add("button", undefined, "Execute");
+
+    // ---- Processing functions start here ----
+    function __T(layer) { return layer.property("ADBE Transform Group"); }
+    function __P(layer) { return __T(layer).property("ADBE Position"); }
+    function __S(layer) { return __T(layer).property("ADBE Scale"); }
+    function __A(layer) { return __T(layer).property("ADBE Anchor Point"); }
+
+    function __isResizableSource(layer) {
+        try {
+            return layer.source && layer.source.mainSource && (layer.source.mainSource instanceof SolidSource);
+        } catch (e) { return false; }
+    }
+
+    function __centerLayer(layer, compW, compH, time) {
+        var rect = layer.sourceRectAtTime(time, false);
+        var centerX = rect.left + rect.width / 2;
+        var centerY = rect.top + rect.height / 2;
+
+        if (layer.threeDLayer) {
+            var currP = __P(layer).value;
+            __A(layer).setValue([centerX, centerY, 0]);
+            __P(layer).setValue([compW / 2, compH / 2, currP[2]]);
+        } else {
+            __A(layer).setValue([centerX, centerY]);
+            __P(layer).setValue([compW / 2, compH / 2]);
+        }
+    }
+
+    // Recursively search for and modify the size of rectangles and ellipses within shapes
+    function __findAndSetShapeSize(propParent, w, h) {
+        var foundAndSet = false;
+
+        for (var i = 1; i <= propParent.numProperties; i++) {
+            var prop = propParent.property(i);
+
+            if (prop.matchName === "ADBE Vector Rect Size" || prop.matchName === "ADBE Vector Ellipse Size") {
+                prop.setValue([w, h]);
+                foundAndSet = true;
+            } else if (prop.numProperties > 0) {
+                if (__findAndSetShapeSize(prop, w, h)) foundAndSet = true;
+            }
+        }
+        return foundAndSet;
+    }
+
+    // ---- Execution processing ----
+    fitBtn.onClick = function () {
+        var comp = app.project.activeItem;
+        if (!(comp && comp instanceof CompItem)) {
+            alert("Please activate the composition.");
+            return;
+        }
+
+        var layers = comp.selectedLayers;
+        if (!layers || layers.length === 0) {
+            alert("Please select a layer.");
+            return;
+        }
+
+        app.beginUndoGroup("Fit to Comp Smart");
+
+        var compW = comp.width;
+        var compH = comp.height;
+        var now = comp.time;
+
+        try {
+            for (var i = 0; i < layers.length; i++) {
+                var layer = layers[i];
+
+                // Skip anything other than AVLayer (including planes) or ShapeLayer
+                if (!(layer instanceof AVLayer) && !(layer instanceof ShapeLayer)) continue;
+
+                // Common: Scale adjustment (Faure)
+                var fitScale = function () {
+                    var rect = layer.sourceRectAtTime(now, false);
+                    if (rect.width === 0 || rect.height === 0) return;
+
+                    var sx = (compW / rect.width) * 100;
+                    var sy = (compH / rect.height) * 100;
+
+                    if (layer.threeDLayer) __S(layer).setValue([sx, sy, 100]);
+                    else __S(layer).setValue([sx, sy]);
+
+                    __centerLayer(layer, compW, compH, now);
+                };
+
+                // Method 1: Align everything to scale
+                if (fitRb1.value) {
+                    fitScale();
+                    continue;
+                }
+
+                // Method 2: Change the internal size
+                if (fitRb2.value) {
+                    // A. Layers & Adjustment Layers
+                    if (__isResizableSource(layer)) {
+
+                        // ★ Create new and replace (to avoid sharing)
+                        if (fitChkNew.value) {
+                            var oldSrc = layer.source;
+                            var newColor = [0.5, 0.5, 0.5];
+                            var oldName = layer.name;
+
+                            if (oldSrc.mainSource && oldSrc.mainSource.color) {
+                                newColor = oldSrc.mainSource.color;
+                            }
+
+                            // Temporarily create a new plane to acquire the source
+                            var tempLayer = comp.layers.addSolid(newColor, oldName, compW, compH, comp.pixelAspect, comp.duration);
+                            var newSrc = tempLayer.source;
+                            tempLayer.remove();
+
+                            // Source Replacement
+                            layer.replaceSource(newSrc, false);
+                        }
+                        // ★ Resize existing sources (shared)
+                        else {
+                            var src = layer.source;
+                            src.width = compW;
+                            src.height = compH;
+                            src.pixelAspect = comp.pixelAspect;
+                        }
+
+                        // Reset the scale to 100% and center it.
+                        if (layer.threeDLayer) __S(layer).setValue([100, 100, 100]);
+                        else __S(layer).setValue([100, 100]);
+
+                        __centerLayer(layer, compW, compH, now);
+                    }
+                    // B. Shape Layer (Rectangle/Ellipse)
+                    else if (layer instanceof ShapeLayer) {
+                        var contents = layer.property("ADBE Root Vectors Group");
+                        var isResized = __findAndSetShapeSize(contents, compW, compH);
+
+                        if (isResized) {
+                            if (layer.threeDLayer) __S(layer).setValue([100, 100, 100]);
+                            else __S(layer).setValue([100, 100]);
+
+                            __centerLayer(layer, compW, compH, now);
+                        } else {
+                            fitScale();
+                        }
+                    }
+                    // C. Other (Images, etc.)
+                    else {
+                        fitScale();
+                    }
+                }
+            }
+        } catch (e) {
+            alert("Fit to Comp Smart error:\n" + e.toString());
+        } finally {
+            app.endUndoGroup();
+        }
+    };
+
+
+
+    // Insert line break
+    panel.add("statictext", undefined, "----------------------------------------------");
+
 }
 
 

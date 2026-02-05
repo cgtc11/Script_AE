@@ -1,5 +1,5 @@
 AfterEffects script.
-O_Tools_en_v1.5.7b
+O_Tools_en_v1.5.8a
 -------------------------------------
 □□□How to install□□□
 -------------------------------------
@@ -75,27 +75,41 @@ Reduce excess compo size to just the right size.
 
 Places the selected item at the top of the work area.
 This is useful for rearranging items that are outside the timeline.
-----------------------------------
-★Add/Update _size at end of name
-
-Adds the _size information to the end of the name of the selected item in the project panel.
-If the item already has a number, it will be changed.
 
 ----------------------------------
 ■■■Tools2■■■
 ----------------------------------
 ★Clear Layer Names
 
-If you manually change the name of the Text layer, the name will not automatically change when you change the Text, so it initializes everything you have selected.
+If you manually change the name of the Text layer, 
+the name will not automatically change when you change the Text,
+so it initializes everything you have selected.
 It is the same as pressing the Enter key without typing anything when changing the name.
 
 It is inconvenient to use Maya if Camera, Light, Shape, and Null are in Japanese.
 If you want them to be in English, select them using the checkboxes.
+
 ----------------------------------
 ★Add/Update _Size at the End of Name
 
+Adds the _size information to the end of the name of the selected item in the project panel.
+If the item already has a number, it will be changed.
+
 ----------------------------------
 ★Center the Composition View
+
+Center the screen you're viewing for your work.
+
+----------------------------------
+★Change the plane to a composite
+
+Automatically adjust selected layers to fit the composition size.
+You can choose to scale plane, shape, and adjustment layers to fit the composition size,
+or keep the scale at 100% and adjust the size instead.
+To keep shared elements unchanged when resizing to fit at 100% scale,
+you can choose whether to create new layers and replace them.
+
+After resizing, position them to cover the entire screen.
 
 -------------------------------------
 ■■■RemoveD■■■
