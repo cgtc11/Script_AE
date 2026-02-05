@@ -18,11 +18,6 @@
 　</h2>
   <p><strong>目的:</strong> ２つのAEとAE間で「コピー・ペースト」するツール</p>
 
-  <h2 id="copipe">
-  <a href="https://github.com/cgtc11/Script_AE/tree/main/FitToCompSmart">FitToCompSmart</a>
-　</h2>
-  <p><strong>目的:</strong> 平面、シェイプ、調整レイヤーをコンポサイズにするツール</p>
-
   <h2 id="fxcopypastetool">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/FxCopyPasteTool">FxCopyPasteTool</a>
 　</h2>
