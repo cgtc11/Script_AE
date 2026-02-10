@@ -33,6 +33,10 @@ Key all the frames, convert to stop key, and repeatedly delete the specified num
 
 Shift the selected key's value by the entered amount.
 
+★Interval
+
+Re-positions multiple selected keys at specified numerical intervals from the current indicator.
+
 ----------------------------------
 ★"■-------"　Display the first frame initially.
 
@@ -132,5 +136,7 @@ You can specify the shake amplitude and the duration (in frames) of the effect.
 ----------------------------------
 ★Delete Items
 
-Removes selected elements from a layer. Convenient for undoing changes.
+Deletes all keys in the selected range
+Removes expressions and various keys
+Useful for undoing actions
 ----------------------------------

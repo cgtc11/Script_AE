@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8a by Digimonkey
+// O_Tools V1.5.8b by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -397,6 +397,88 @@ T1_Btn_offset.onClick = function () {
 
     app.endUndoGroup();
 };
+
+
+// ★Group for evenly spaced placement
+
+var T1_Btn_spacing_Group = stopKeysGroup.add("group");
+T1_Btn_spacing_Group.orientation = "row";
+T1_Btn_spacing_Group.alignment = "center";
+
+var T1_Btn_spacing = T1_Btn_spacing_Group.add("button", undefined, "Interval");
+T1_Btn_spacing.size = [80, 30];
+var T1_Btn_spacing_Num = T1_Btn_spacing_Group.add("edittext", undefined, "1");
+T1_Btn_spacing_Num.size = [30, 30];
+T1_Btn_spacing.helpTip = "0 means full placement, 1 means skip every other frame, 2 means skip every two frames.";
+
+// クリック時の処理
+T1_Btn_spacing.onClick = function () {
+    var comp = app.project.activeItem;
+    if (!(comp && comp instanceof CompItem)) {
+        alert("Please select a composition.");
+        return;
+    }
+
+    var fr = comp.frameRate;
+    var inputNum = parseFloat(T1_Btn_spacing_Num.text);
+    if (isNaN(inputNum)) {
+        alert("Please enter a number.");
+        return;
+    }
+
+    app.beginUndoGroup("Arrange Keys Spacing");
+
+    var stepTime = (inputNum + 1) / fr; 
+    var currentTime = comp.time;
+    var layers = comp.selectedLayers;
+
+    for (var i = 0; i < layers.length; i++) {
+        var lyr = layers[i];
+        // Get all selected “Properties”
+        var selectedProps = lyr.selectedProperties;
+        
+        for (var p = 0; p < selectedProps.length; p++) {
+            var prop = selectedProps[p];
+            
+            // Verify that it is a property and that at least one keyframe is selected.
+            if (prop.propertyType === PropertyType.PROPERTY && prop.selectedKeys.length > 0) {
+                
+                var selectedKeyData = [];
+                var indicesToRemove = [];
+
+                // 1. Save all information about the selected keys “while you still can”
+                // prop.selectedKeys returns an array of indices for the currently selected keys
+                for (var j = 0; j < prop.selectedKeys.length; j++) {
+                    var kIdx = prop.selectedKeys[j];
+                    selectedKeyData.push({
+                        val: prop.keyValue(kIdx),
+                        inInterp: prop.keyInInterpolationType(kIdx),
+                        outInterp: prop.keyOutInterpolationType(kIdx)
+                    });
+                    indicesToRemove.push(kIdx);
+                }
+
+                // 2. ★Important: Delete the selected key “from the end”
+                // If you don't do this, the key will remain in its original position.
+                for (var r = indicesToRemove.length - 1; r >= 0; r--) {
+                    prop.removeKey(indicesToRemove[r]);
+                }
+
+                // 3. Reset from the indicator position
+                for (var m = 0; m < selectedKeyData.length; m++) {
+                    var newTime = currentTime + (m * stepTime);
+                    var newIdx = prop.addKey(newTime);
+                    
+                    prop.setValueAtKey(newIdx, selectedKeyData[m].val);
+                    prop.setInterpolationTypeAtKey(newIdx, selectedKeyData[m].inInterp, selectedKeyData[m].outInterp);
+                }
+            }
+        }
+    }
+
+    app.endUndoGroup();
+};
+
 
     var stopKeysLabel = stopKeysGroup.add("statictext", undefined, "--------- For Time Remapping ---------");
     var w = new Window("palette", "LOOP Settings");
@@ -1434,6 +1516,9 @@ function buildRemoveUI(panel) {
     var separatorText = panel.add("statictext", undefined, "Duplicates will be removed");
     separatorText.alignment = "center"; // Center alignment
 
+ var checkButton = panel.add("button", undefined, "Start searching in the folder");
+ checkButton.helpTip = "Searches for duplicate items based on specified criteria";
+
  var folderGroup = panel.add("group");
  folderGroup.add("statictext", undefined, "select folder:");
  var folderPath = folderGroup.add("edittext", undefined, "");
@@ -1466,9 +1551,6 @@ function buildRemoveUI(panel) {
  var includeCompsCheckBox = checkBoxGroup.add("checkbox", undefined, "include compo");
  includeCompsCheckBox.helpTip = "Include composition items in the search criteria";
  includeCompsCheckBox.value = false;
-
- var checkButton = panel.add("button", undefined, "Start searching in the folder");
- checkButton.helpTip = "Searches for duplicate items based on specified criteria";
 
  var executeButton = panel.add("button", undefined, "Deleted after summarizing the same");
  executeButton.helpTip = "Consolidate or delete duplicate items found in the search";
@@ -1687,112 +1769,82 @@ function buildShakeUI(panel) {
 
         // ★★★★★Delete★★★★★
 
-        // Section for delete functionality
-        var deletePanel = panel.add("panel", undefined, "Delete Items");
-        deletePanel.alignChildren = "left";
-        var transformCheckbox = deletePanel.add("checkbox", undefined, "Delete Transform");
-        var expressionCheckbox = deletePanel.add("checkbox", undefined, "Delete Expressions");
-        var effectsCheckbox = deletePanel.add("checkbox", undefined, "Delete Effects");
-        var maskCheckbox = deletePanel.add("checkbox", undefined, "Delete Masks");
-        var timeRemapCheckbox = deletePanel.add("checkbox", undefined, "Delete Time Remap"); // Add a checkbox for time remap deletion
+// Delete Function Section (Simply a button)
+    var deletePanel = panel.add("panel", undefined, "Initialization");
+    deletePanel.alignment = ["fill", "top"];
+    
+    var deleteAllButton = deletePanel.add("button", undefined, "Delete all keys and information");
+    deleteAllButton.helpTip = "Completely delete and reset all keyframes, expressions, effects, and masks on the selected layer.";
+    deleteAllButton.size = [200, 40];
 
-        // Add helpTip
-        transformCheckbox.helpTip = "Delete the transform properties (position, rotation, etc.) of the selected layers.";
-        expressionCheckbox.helpTip = "Delete the expressions on the selected layers.";
-        effectsCheckbox.helpTip = "Delete the effects applied to the selected layers.";
-        maskCheckbox.helpTip = "Delete the masks applied to the selected layers.";
-        timeRemapCheckbox.helpTip = "Delete the time remap applied to the selected layers.";
+    deleteAllButton.onClick = function() {
+        var comp = app.project.activeItem;
+        if (!(comp instanceof CompItem)) {
+            alert("Please select a composition.");
+            return;
+        }
 
-        // Set default values for the checkboxes
-        transformCheckbox.value = true;    // Check "Delete Transform" by default
-        expressionCheckbox.value = true;   // Check "Delete Expressions" by default
-        effectsCheckbox.value = true;      // Check "Delete Effects" by default
-        maskCheckbox.value = true;         // Check "Delete Masks" by default
-        timeRemapCheckbox.value = true;    // Check "Delete Time Remap" by default
+        var layers = comp.selectedLayers;
+        if (layers.length === 0) {
+            alert("Please select a layer.");
+            return;
+        }
 
-        // Add a delete button
-        var deleteButton = panel.add("button", undefined, "Delete");
-        deleteButton.helpTip = "Delete the selected items based on the checked options.";
+        app.beginUndoGroup("Complete Layer Initialization");
 
-        // Function to be executed when the delete button is pressed
-        deleteButton.onClick = function () {
-            var comp = app.project.activeItem;
-            if (!(comp instanceof CompItem)) {
-                alert("Please select a composition.");
-                return;
+        for (var i = 0; i < layers.length; i++) {
+            var layer = layers[i];
+
+            // 1. Remove all effects
+            var effectsGroup = layer.property("ADBE Effect Parade");
+            while (effectsGroup && effectsGroup.numProperties > 0) {
+                effectsGroup.property(1).remove();
             }
 
-            var layers = comp.selectedLayers;
-            if (layers.length === 0) {
-                alert("Please select a layer to delete.");
-                return;
+            // 2. Remove all masks
+            var maskGroup = layer.property("ADBE Mask Parade");
+            while (maskGroup && maskGroup.numProperties > 0) {
+                maskGroup.property(1).remove();
             }
 
-            app.beginUndoGroup("Delete");
-
-            for (var i = 0; i < layers.length; i++) {
-                var layer = layers[i];
-
-                // Delete Transform
-                if (transformCheckbox.value) {
-                    var properties = ['position', 'rotation', 'scale', 'opacity', 'anchorPoint'];
-                    for (var j = 0; j < properties.length; j++) {
-                        var prop = layer.transform[properties[j]];
-
-                        // Delete keyframes
-                        if (prop && prop.numKeys > 0) {
-                            for (var k = prop.numKeys; k > 0; k--) {
-                                prop.removeKey(k);
-                            }
-                        }
-                    }
-                }
-
-                // Delete Expressions
-                if (expressionCheckbox.value) {
-                    var propsWithExpressions = ['position', 'rotation', 'scale', 'opacity', 'anchorPoint'];
-                    for (var j = 0; j < propsWithExpressions.length; j++) {
-                        var prop = layer.transform[propsWithExpressions[j]];
-                        if (prop && prop.expression !== "") {
-                            prop.expression = "";  // Delete the expression
-                        }
-                    }
-                }
-
-                // Delete Effects
-                if (effectsCheckbox.value) {
-                    var effectsGroup = layer.property("ADBE Effect Parade");
-                    if (effectsGroup && effectsGroup.numProperties > 0) {
-                        while (effectsGroup.numProperties > 0) {
-                            effectsGroup.property(1).remove();
-                        }
-                    }
-                }
-
-                // Delete Masks
-                if (maskCheckbox.value) {
-                    var maskGroup = layer.property("ADBE Mask Parade");
-                    if (maskGroup && maskGroup.numProperties > 0) {
-                        while (maskGroup.numProperties > 0) {
-                            maskGroup.property(1).remove();
-                        }
-                    }
-                }
-
-                // Delete Time Remap
-                if (timeRemapCheckbox.value) {
-                    var timeRemapProp = layer.property("ADBE Time Remapping");
-                    if (timeRemapProp && timeRemapProp.numKeys > 0) {
-                        for (var k = timeRemapProp.numKeys; k > 0; k--) {
-                            timeRemapProp.removeKey(k);
-                        }
-                        layer.timeRemapEnabled = false; // Disable time remap
-                    }
-                }
-
+            // 3. Disable Time Remap
+            if (layer.canEnableTimeRemap && layer.timeRemapEnabled) {
+                layer.timeRemapEnabled = false;
             }
+
+            // 4. Delete all property keyframes and expressions (recursively)
+            // This targets not only transforms but also the contents of shapes and text
+            removeAllKeysAndExpressions(layer);
+        }
+
+        app.endUndoGroup();
+    };
+
+    /**
+     * Function to delve into property groups and remove all keys and expressions
+     */
+    function removeAllKeysAndExpressions(propParent) {
+        for (var i = 1; i <= propParent.numProperties; i++) {
+            var prop = propParent.property(i);
+            
+            if (prop.propertyType === PropertyType.PROPERTY) {
+                // If there are keyframes, delete them.
+                if (prop.numKeys > 0) {
+                    for (var k = prop.numKeys; k > 0; k--) {
+                        prop.removeKey(k);
+                    }
+                }
+                // If there is an expression, delete it.
+                if (prop.canSetExpression && prop.expression !== "") {
+                    prop.expression = "";
+                }
+            } else if (prop.propertyType === PropertyType.INDEXED_GROUP || prop.propertyType === PropertyType.NAMED_GROUP) {
+                // For groups (such as the contents of shapes), dive deeper.
+                removeAllKeysAndExpressions(prop);
+            }
+        }
             app.endUndoGroup();
-        };
+    };
 
         // ★★★★★end★★★★★
 }

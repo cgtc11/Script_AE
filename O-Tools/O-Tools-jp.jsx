@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8a by Digimonkey
+// O_Tools V1.5.8b by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -358,6 +358,7 @@ function buildTReMapUI(panel) {
 
 // コマ抜きボタンの横にオフセットボタンを追加
 // ★ここからオフセット用のグループ（改行して下に配置）
+
 var T1_Btn_offset_Group = stopKeysGroup.add("group");
 T1_Btn_offset_Group.orientation = "row";
 T1_Btn_offset_Group.alignment = "center";
@@ -396,6 +397,86 @@ T1_Btn_offset.onClick = function () {
             if (prop.keySelected(k)) {
                 var v = prop.keyValue(k);
                 prop.setValueAtKey(k, v + delta); // 値だけをずらす
+            }
+        }
+    }
+
+    app.endUndoGroup();
+};
+
+// ★等間隔配置用のグループ
+
+var T1_Btn_spacing_Group = stopKeysGroup.add("group");
+T1_Btn_spacing_Group.orientation = "row";
+T1_Btn_spacing_Group.alignment = "center";
+
+var T1_Btn_spacing = T1_Btn_spacing_Group.add("button", undefined, "間隔整列");
+T1_Btn_spacing.size = [80, 30];
+var T1_Btn_spacing_Num = T1_Btn_spacing_Group.add("edittext", undefined, "1");
+T1_Btn_spacing_Num.size = [30, 30];
+T1_Btn_spacing.helpTip = "0ならフル、1なら1コマ飛ばし、2なら2コマ飛ばしで配置します";
+
+// クリック時の処理
+T1_Btn_spacing.onClick = function () {
+    var comp = app.project.activeItem;
+    if (!(comp && comp instanceof CompItem)) {
+        alert("コンポジションを選択してください。");
+        return;
+    }
+
+    var fr = comp.frameRate;
+    var inputNum = parseFloat(T1_Btn_spacing_Num.text);
+    if (isNaN(inputNum)) {
+        alert("数値を入力してください");
+        return;
+    }
+
+    app.beginUndoGroup("Arrange Keys Spacing");
+
+    var stepTime = (inputNum + 1) / fr; 
+    var currentTime = comp.time;
+    var layers = comp.selectedLayers;
+
+    for (var i = 0; i < layers.length; i++) {
+        var lyr = layers[i];
+        // 選択されている「プロパティ」をすべて取得
+        var selectedProps = lyr.selectedProperties;
+        
+        for (var p = 0; p < selectedProps.length; p++) {
+            var prop = selectedProps[p];
+            
+            // プロパティであり、かつキーフレームが1つ以上選択されているか確認
+            if (prop.propertyType === PropertyType.PROPERTY && prop.selectedKeys.length > 0) {
+                
+                var selectedKeyData = [];
+                var indicesToRemove = [];
+
+                // 1. 選択されているキーの情報を「今のうちに」すべて保存
+                // prop.selectedKeys は現在選択されているキーのインデックス配列を返します
+                for (var j = 0; j < prop.selectedKeys.length; j++) {
+                    var kIdx = prop.selectedKeys[j];
+                    selectedKeyData.push({
+                        val: prop.keyValue(kIdx),
+                        inInterp: prop.keyInInterpolationType(kIdx),
+                        outInterp: prop.keyOutInterpolationType(kIdx)
+                    });
+                    indicesToRemove.push(kIdx);
+                }
+
+                // 2. ★重要：選択されていたキーを「後ろから」削除
+                // これをやらないと、元の位置にキーが残ってしまいます
+                for (var r = indicesToRemove.length - 1; r >= 0; r--) {
+                    prop.removeKey(indicesToRemove[r]);
+                }
+
+                // 3. インジケータ位置から新しく打ち直す
+                for (var m = 0; m < selectedKeyData.length; m++) {
+                    var newTime = currentTime + (m * stepTime);
+                    var newIdx = prop.addKey(newTime);
+                    
+                    prop.setValueAtKey(newIdx, selectedKeyData[m].val);
+                    prop.setInterpolationTypeAtKey(newIdx, selectedKeyData[m].inInterp, selectedKeyData[m].outInterp);
+                }
             }
         }
     }
@@ -836,11 +917,11 @@ function buildCombined1UI(panel) {
         moveLayersToWorkArea();
     };
 
-    function moveLayersToWorkArea() {
+function moveLayersToWorkArea() {
         var comp = app.project.activeItem;
 
         if (comp && comp instanceof CompItem) {
-            app.beginUndoGroup("レイヤーを作業領域に移動する");
+            app.beginUndoGroup("レイヤーをフルサイズで移動");
             var workAreaStart = comp.workAreaStart;
             var layers = comp.selectedLayers;
 
@@ -852,15 +933,33 @@ function buildCombined1UI(panel) {
 
             for (var i = 0; i < layers.length; i++) {
                 var layer = layers[i];
+
+                // --- トリミングを「素材の全尺」に強制リセット ---
+                
+                // 1. まずイン点を素材の「本当のゼロ地点」に戻す
+                layer.inPoint = layer.startTime; 
+
+                // 2. アウト点を設定（ここで長さを決める）
+                if (layer.source !== null && !layer.source.isStill && layer.source.duration > 0) {
+                    // 動画フッテージの場合：その動画の長さ（duration）に合わせる
+                    layer.outPoint = layer.startTime + layer.source.duration;
+                } else {
+                    // 画像・テキスト・ヌル・シェイプなどの場合：
+                    // 一旦、コンポジションと同じ長さ（duration）を確保する
+                    layer.outPoint = layer.startTime + comp.duration;
+                }
+
+                // 3. 最後に、中身を維持したまま「作業エリアの先頭」へスライド
+                // これで、中身が詰まった状態で移動します
                 layer.startTime = workAreaStart;
             }
 
             app.endUndoGroup();
-            //alert("選択したレイヤーは作業領域開始に移動されました");
         } else {
-            alert("選択してください");
+            alert("コンポジションを選択してください");
         }
     }
+
     // 改行を挿入
     var separator6 = panel.add("statictext", undefined, "----------------------------------------------");
 }
@@ -1322,6 +1421,9 @@ function buildRemoveUI(panel) {
     var separatorText = panel.add("statictext", undefined, "重複したものを削除します");
     separatorText.alignment = "center"; // 中央揃えにする場合
 
+    var checkButton = panel.add("button", undefined, "調べる");
+    checkButton.helpTip = "指定した条件に基づいて重複アイテムを検索します";
+
     var folderGroup = panel.add("group");
     folderGroup.add("statictext", undefined, "選択フォルダ:");
     var folderPath = folderGroup.add("edittext", undefined, "");
@@ -1354,9 +1456,6 @@ function buildRemoveUI(panel) {
     var includeCompsCheckBox = checkBoxGroup.add("checkbox", undefined, "コンポを含める");
     includeCompsCheckBox.helpTip = "検索条件にコンポジションアイテムを含めます";
     includeCompsCheckBox.value = false;
-
-    var checkButton = panel.add("button", undefined, "調べる");
-    checkButton.helpTip = "指定した条件に基づいて重複アイテムを検索します";
 
     var executeButton = panel.add("button", undefined, "実行");
     executeButton.helpTip = "検索で検出された重複アイテムを統合または削除します";
@@ -1572,110 +1671,80 @@ function buildShakeUI(panel) {
 
         // ★★★★★Delete★★★★★
 
-        // 削除機能のセクション
-        var deletePanel = panel.add("panel", undefined, "削除項目");
-        deletePanel.alignChildren = "left";
-        var transformCheckbox = deletePanel.add("checkbox", undefined, "トランスフォーム削除");
-        var expressionCheckbox = deletePanel.add("checkbox", undefined, "エクスプレッション削除");
-        var effectsCheckbox = deletePanel.add("checkbox", undefined, "エフェクト削除");
-        var maskCheckbox = deletePanel.add("checkbox", undefined, "マスク削除");
-        var timeRemapCheckbox = deletePanel.add("checkbox", undefined, "タイムリマップ削除"); // タイムリマップ削除のチェックボックス追加
+// 削除機能のセクション（シンプルにボタンのみ）
+    var deletePanel = panel.add("panel", undefined, "一括初期化");
+    deletePanel.alignment = ["fill", "top"];
+    
+    var deleteAllButton = deletePanel.add("button", undefined, "全てのキー・情報を削除");
+    deleteAllButton.helpTip = "選択レイヤーの全キーフレーム、エクスプレッション、エフェクト、マスクを完全に削除・リセットします。";
+    deleteAllButton.size = [200, 40];
 
-        // helpTipを追加
-        transformCheckbox.helpTip = "選択されたレイヤーの位置や回転などのトランスフォームプロパティを削除します。";
-        expressionCheckbox.helpTip = "選択されたレイヤーのエクスプレッションを削除します。";
-        effectsCheckbox.helpTip = "選択されたレイヤーに適用されているエフェクトを削除します。";
-        maskCheckbox.helpTip = "選択されたレイヤーに設定されたマスクを削除します。";
-        timeRemapCheckbox.helpTip = "選択されたレイヤーのタイムリマップを削除します。";
+    deleteAllButton.onClick = function() {
+        var comp = app.project.activeItem;
+        if (!(comp instanceof CompItem)) {
+            alert("コンポジションを選択してください。");
+            return;
+        }
 
-        // チェックボックスのデフォルト設定
-        transformCheckbox.value = true;    // トランスフォーム削除をデフォルトでチェック
-        expressionCheckbox.value = true;   // エクスプレッション削除をデフォルトでチェック
-        effectsCheckbox.value = true;      // エフェクト削除をデフォルトでチェック
-        maskCheckbox.value = true;         // マスク削除をデフォルトでチェック
-        timeRemapCheckbox.value = true;  // タイムリマップ削除をデフォルトでチェック
+        var layers = comp.selectedLayers;
+        if (layers.length === 0) {
+            alert("レイヤーを選択してください。");
+            return;
+        }
 
-        // 削除ボタン
-        var deleteButton = panel.add("button", undefined, "削除");
-　　　　deleteButton.helpTip = "選択されたレイヤーに対して、チェックボックスで指定した項目を削除します。";
+        app.beginUndoGroup("レイヤーの完全初期化");
 
-        // 削除ボタンが押された時の処理
-        deleteButton.onClick = function() {
-            var comp = app.project.activeItem;
-            if (!(comp instanceof CompItem)) {
-                alert("コンポジションを選択してください。");
-                return;
+        for (var i = 0; i < layers.length; i++) {
+            var layer = layers[i];
+
+            // 1. エフェクトをすべて削除
+            var effectsGroup = layer.property("ADBE Effect Parade");
+            while (effectsGroup && effectsGroup.numProperties > 0) {
+                effectsGroup.property(1).remove();
             }
 
-            var layers = comp.selectedLayers;
-            if (layers.length === 0) {
-                alert("削除するレイヤーを選択してください。");
-                return;
+            // 2. マスクをすべて削除
+            var maskGroup = layer.property("ADBE Mask Parade");
+            while (maskGroup && maskGroup.numProperties > 0) {
+                maskGroup.property(1).remove();
             }
 
-            app.beginUndoGroup("削除処理");
-
-            for (var i = 0; i < layers.length; i++) {
-                var layer = layers[i];
-
-                // トランスフォーム削除
-                if (transformCheckbox.value) {
-                    var properties = ['position', 'rotation', 'scale', 'opacity', 'anchorPoint'];
-                    for (var j = 0; j < properties.length; j++) {
-                        var prop = layer.transform[properties[j]];
-                        
-                        // キーフレーム削除
-                        if (prop && prop.numKeys > 0) {
-                            for (var k = prop.numKeys; k > 0; k--) {
-                                prop.removeKey(k);
-                            }
-                        }
-                    }
-                }
-
-                // エクスプレッション削除
-                if (expressionCheckbox.value) {
-                    var propsWithExpressions = ['position', 'rotation', 'scale', 'opacity', 'anchorPoint'];
-                    for (var j = 0; j < propsWithExpressions.length; j++) {
-                        var prop = layer.transform[propsWithExpressions[j]];
-                        if (prop && prop.expression !== "") {
-                            prop.expression = "";  // エクスプレッション削除
-                        }
-                    }
-                }
-
-                // エフェクト削除
-                if (effectsCheckbox.value) {
-                    var effectsGroup = layer.property("ADBE Effect Parade");
-                    if (effectsGroup && effectsGroup.numProperties > 0) {
-                        while (effectsGroup.numProperties > 0) {
-                            effectsGroup.property(1).remove();
-                        }
-                    }
-                }
-
-                // マスク削除
-                if (maskCheckbox.value) {
-                    var maskGroup = layer.property("ADBE Mask Parade");
-                    if (maskGroup && maskGroup.numProperties > 0) {
-                        while (maskGroup.numProperties > 0) {
-                            maskGroup.property(1).remove();
-                        }
-                    }
-                }
-
-                // タイムリマップ削除
-                if (timeRemapCheckbox.value) {
-                    var timeRemapProp = layer.property("ADBE Time Remapping");
-                    if (timeRemapProp && timeRemapProp.numKeys > 0) {
-                        for (var k = timeRemapProp.numKeys; k > 0; k--) {
-                            timeRemapProp.removeKey(k);
-                        }
-                        layer.timeRemapEnabled = false; // タイムリマップを無効にする
-                    }
-                }
-
+            // 3. タイムリマップを無効化
+            if (layer.canEnableTimeRemap && layer.timeRemapEnabled) {
+                layer.timeRemapEnabled = false;
             }
+
+            // 4. 全プロパティのキーフレームとエクスプレッションを削除（再帰処理）
+            // これにより、トランスフォームだけでなくシェイプの中身やテキストの中身も対象になります
+            removeAllKeysAndExpressions(layer);
+        }
+
+        app.endUndoGroup();
+    };
+
+    /**
+     * プロパティグループを深掘りして全てのキーとエクスプレッションを消す関数
+     */
+    function removeAllKeysAndExpressions(propParent) {
+        for (var i = 1; i <= propParent.numProperties; i++) {
+            var prop = propParent.property(i);
+            
+            if (prop.propertyType === PropertyType.PROPERTY) {
+                // キーフレームがある場合は削除
+                if (prop.numKeys > 0) {
+                    for (var k = prop.numKeys; k > 0; k--) {
+                        prop.removeKey(k);
+                    }
+                }
+                // エクスプレッションがある場合は削除
+                if (prop.canSetExpression && prop.expression !== "") {
+                    prop.expression = "";
+                }
+            } else if (prop.propertyType === PropertyType.INDEXED_GROUP || prop.propertyType === PropertyType.NAMED_GROUP) {
+                // グループ（シェイプの中身など）の場合はさらに深く潜る
+                removeAllKeysAndExpressions(prop);
+            }
+        }
             app.endUndoGroup();
     };
 
