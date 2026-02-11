@@ -18,6 +18,11 @@
 　</h2>
   <p><strong>目的:</strong> ２つのAEとAE間で「コピー・ペースト」するツール</p>
 
+  <h2 id="copipe">
+  <a href="https://github.com/cgtc11/Script_AE/tree/main/Color2Blur">Color2Blur</a>
+　</h2>
+  <p><strong>目的:</strong> 2色だけにボカしをかけるフィルター</p>
+
   <h2 id="fxcopypastetool">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/FxCopyPasteTool">FxCopyPasteTool</a>
 　</h2>
