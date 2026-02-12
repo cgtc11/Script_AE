@@ -753,47 +753,51 @@ var stopKeysLabel = stopKeysGroup.add("statictext", undefined, "----------------
 
 function buildCombined1UI(panel) {
 
-    // ★★★★★Reverse the order of the selected layers★★★★★
+// ★★★★★ Reverse the Order of Selected Layers (Within Selection) ★★★★★
 
     var reverseGroup = panel.add("group", undefined);
     reverseGroup.orientation = "column";
     reverseGroup.alignment = ["fill", "top"];
 
-    var reverseLabel = reverseGroup.add("statictext", undefined, "---------Reverse Selected Layers---------");
-    reverseLabel.helpTip = "Reverse the order of selected layers";
+    var reverseLabel = reverseGroup.add("statictext", undefined, "------- Reverse Layer Order -------");
+    reverseLabel.helpTip = "Reverses the order of the selected layers";
 
     var reverseButton = reverseGroup.add("button", undefined, "Reverse Layers");
-    reverseButton.helpTip = "Reverses the order of selected layers";
+    reverseButton.helpTip = "Reverses the order of layers within the selected range";
+    reverseButton.size = [150, 30]; // Adjusted for English text
+
     reverseButton.onClick = function () {
         reverseLayers();
-        reverseButton.active = false; // Deactivate the button
+        reverseButton.active = false;
     };
 
     function reverseLayers() {
         var comp = app.project.activeItem;
         if (!(comp && comp instanceof CompItem)) {
-            alert("Select the active composition.");
+            alert("Please select an active composition.");
             return;
         }
 
         var selectedLayers = comp.selectedLayers;
         if (selectedLayers.length < 2) {
-            alert("Select at least two layers.");
+            alert("Please select at least two layers.");
             return;
         }
 
-        app.beginUndoGroup("Reverse Selected Layers");
+        app.beginUndoGroup("Reverse Selected Layers Order");
 
-        // Record the original indices of the layers
-        var layerIndices = [];
+        // 1. Collect original indices of selected layers and sort them ascending
+        var indices = [];
         for (var i = 0; i < selectedLayers.length; i++) {
-            layerIndices.push(selectedLayers[i].index);
+            indices.push(selectedLayers[i].index);
         }
+        indices.sort(function(a, b) { return a - b; });
 
-        // Move the layers in reverse order
-        for (var i = 0; i < selectedLayers.length; i++) {
-            var targetIndex = layerIndices[selectedLayers.length - 1 - i];
-            selectedLayers[i].moveBefore(comp.layer(targetIndex));
+        // 2. Move selected layers (from top to bottom) to the target indices in reverse order
+        // This maintains their relative position even if the selection is non-consecutive
+        for (var j = 0; j < selectedLayers.length; j++) {
+            var targetIndex = indices[selectedLayers.length - 1 - j];
+            selectedLayers[j].moveAfter(comp.layer(targetIndex));
         }
 
         app.endUndoGroup();
@@ -842,56 +846,68 @@ function buildCombined1UI(panel) {
         adjustTimeButton.active = false; // Deactivate the button
     };
 
-    // ★★★★★Adjust the comp duration based on the length of the layers★★★★★
+// ★★★★★ Adjust Comp Duration Based on Layer Length (Selection Priority) ★★★★★
 
     var adjustCompDurationGroup = panel.add("group", undefined);
     adjustCompDurationGroup.orientation = "column";
     adjustCompDurationGroup.alignment = ["fill", "top"];
 
-    var adjustCompDurationLabel = adjustCompDurationGroup.add("statictext", undefined, "----Component time adjustment----");
-    adjustCompDurationLabel.helpTip = "Adjusts the duration of the composition based on the length of the layer";
+    var adjustCompDurationLabel = adjustCompDurationGroup.add("statictext", undefined, "-- Adjust Comp to Layer Length --");
+    adjustCompDurationLabel.helpTip = "Adjust comp duration based on selected layers (or all layers if none selected)";
 
-    var adjustCompDurationButton = adjustCompDurationGroup.add("button", undefined, "Component time adjustment");
-    adjustCompDurationButton.helpTip = "Composition durations based on layer length";
-    //adjustCompDurationButton.size = [120, 30]; // Set button size
+    var adjustCompDurationButton = adjustCompDurationGroup.add("button", undefined, "Adjust Comp Duration");
+    adjustCompDurationButton.helpTip = "Adjusts the composition duration based on the range of the layers";
+    adjustCompDurationButton.size = [150, 30]; // Slightly wider for English text
 
     adjustCompDurationButton.onClick = function () {
         adjustCompDuration();
-        adjustCompDurationButton.active = false; // Deactivate the button
+        adjustCompDurationButton.active = false;
     };
 
     function adjustCompDuration() {
         var comp = app.project.activeItem;
-        if (comp != null && comp instanceof CompItem) {
-            app.beginUndoGroup("Adjust the comp time based on the layer");
-
-            var minInPoint = comp.duration;
-            var maxOutPoint = 0;
-
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                if (layer.inPoint < minInPoint) {
-                    minInPoint = layer.inPoint;
-                }
-                if (layer.outPoint > maxOutPoint) {
-                    maxOutPoint = layer.outPoint;
-                }
-            }
-
-            var newDuration = maxOutPoint - minInPoint;
-            comp.duration = newDuration;
-
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                layer.startTime -= minInPoint;
-            }
-
-            comp.displayStartTime = 0;
-
-            app.endUndoGroup();
-        } else {
+        if (!(comp instanceof CompItem)) {
             alert("Please select a composition.");
+            return;
         }
+
+        // 1. Determine target layers (selected layers if any, otherwise all layers)
+        var hasSelection = comp.selectedLayers.length > 0;
+        var targetLayers = hasSelection ? comp.selectedLayers : comp.layers;
+        
+        // Exit if no layers exist
+        if (targetLayers.length === 0 || comp.numLayers === 0) {
+            alert("No layers found.");
+            return;
+        }
+
+        app.beginUndoGroup("Adjust Comp Duration Based on Layers");
+
+        var minInPoint = comp.duration;
+        var maxOutPoint = 0;
+
+        // 2. Calculate the range of target layers
+        var loopCount = hasSelection ? targetLayers.length : comp.numLayers;
+        for (var i = 1; i <= loopCount; i++) {
+            var layer = hasSelection ? targetLayers[i-1] : comp.layer(i);
+            if (layer.inPoint < minInPoint) minInPoint = layer.inPoint;
+            if (layer.outPoint > maxOutPoint) maxOutPoint = layer.outPoint;
+        }
+
+        var newDuration = maxOutPoint - minInPoint;
+
+        if (newDuration > 0) {
+            // 3. Offset all layers to start at 0 seconds
+            for (var j = 1; j <= comp.numLayers; j++) {
+                comp.layer(j).startTime -= minInPoint;
+            }
+
+            // 4. Set new composition duration
+            comp.duration = newDuration;
+            comp.displayStartTime = 0;
+        }
+
+        app.endUndoGroup();
     }
 
     // ★★★★★Move inside the work area★★★★★
@@ -939,213 +955,13 @@ function buildCombined1UI(panel) {
         }
     }
 
-    // ★★★★★ Add/Update size information to the names of selected items ★★★★★
-
-    var sizeUpdateGroup = panel.add("group", undefined);
-    sizeUpdateGroup.orientation = "column";
-    sizeUpdateGroup.alignment = ["fill", "top"];
-
-    var sizeUpdateLabel = sizeUpdateGroup.add("statictext", undefined, "--Add/Update _Size to the end of the name--");
-    sizeUpdateLabel.helpTip = "Add or update size information to the names of selected items";
-
-    var sizeUpdateButton = sizeUpdateGroup.add("button", undefined, "Add/Update Size");
-    sizeUpdateButton.helpTip = "Add or update size information to the names of the selected items";
-
-    sizeUpdateButton.onClick = function () {
-        addOrUpdateSizeInSelectedItems();
-    };
-
-    function addOrUpdateSizeInSelectedItems() {
-        app.beginUndoGroup("Rename Selected Items with Size");
-
-        var selectedItems = app.project.selection;
-        var activeComp = app.project.activeItem;
-
-        // Show an alert if no items are selected in both the Project panel and the Timeline panel
-        if (selectedItems.length === 0 && !(activeComp instanceof CompItem && activeComp.selectedLayers.length > 0)) {
-            alert("Please select items in either the Project panel or the Timeline panel.");
-            return;
-        }
-
-        // Size pattern (e.g., _1366x768, _1366＊768, _1366*768, _1366X768)
-        var sizePattern = /(_\d+[xX＊*]\d+)$/;
-
-        // Update size information for selected items in the Project panel
-        for (var i = 0; i < selectedItems.length; i++) {
-            var item = selectedItems[i];
-
-            // Process only if the item is a Footage or Comp item
-            if (item instanceof FootageItem || item instanceof CompItem) {
-                var itemWidth = item.width;
-                var itemHeight = item.height;
-                var sizeString = "_" + itemWidth + "*" + itemHeight;
-
-                // If the name already contains size information, remove it and add the new size information
-                var newName = item.name.replace(sizePattern, "");  // Remove existing size information
-                newName += sizeString;  // Add new size information
-                item.name = newName;
-            }
-        }
-
-        // Update size information for the source items of the selected layers in the Timeline panel
-        if (activeComp instanceof CompItem) {
-            var selectedLayers = activeComp.selectedLayers;
-            for (var j = 0; j < selectedLayers.length; j++) {
-                var layer = selectedLayers[j];
-                var source = layer.source;
-
-                if (source instanceof FootageItem || source instanceof CompItem) {
-                    var sourceWidth = source.width;
-                    var sourceHeight = source.height;
-                    var sizeString = "_" + sourceWidth + "*" + sourceHeight;
-
-                    // If the name already contains size information, remove it and add the new size information
-                    var newName = source.name.replace(sizePattern, "");  // Remove existing size information
-                    newName += sizeString;  // Add new size information
-                    source.name = newName;
-                }
-            }
-        }
-        app.endUndoGroup();
-    }
-
-    // ★★★★★End Here★★★★★
-
     // Insert a line separator
     var separator6 = panel.add("statictext", undefined, "----------------------------------------------");
 }
 
-function reverseLayers() {
-    var comp = app.project.activeItem;
-    if (comp != null && comp instanceof CompItem) {
-        var selectedLayers = comp.selectedLayers;
-
-        if (selectedLayers.length > 1) {
-            app.beginUndoGroup("Reverse Layers");
-
-            // Arrange the selected layers in reverse order
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-                layer.moveToBeginning();
-            }
-
-            app.endUndoGroup();
-        } else {
-            alert("Select multiple layers.");
-        }
-    } else {
-        alert("Composition is not selected.");
-    }
-}
-
-function convertCommentsToTextAndClearNames() {
-    var comp = app.project.activeItem;
-    if (comp != null && comp instanceof CompItem) {
-        var selectedLayers = comp.selectedLayers;
-
-        if (selectedLayers.length > 0) {
-            app.beginUndoGroup("Convert Comments to Text and Clear Layer Names");
-
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-                if (layer instanceof TextLayer) {
-                    var commentText = layer.comment;
-
-                    if (commentText != "") {
-                        layer.property("Source Text").setValue(commentText);
-                    }
-                    // Clear the layer name
-                    layer.name = "";
-                }
-            }
-
-            app.endUndoGroup();
-        } else {
-            alert("Select the text layer.");
-        }
-    } else {
-        alert("Composition is not selected.");
-    }
-}
-
-function adjustLayerDuration(frameDuration) {
-    var comp = app.project.activeItem;
-    if (comp != null && comp instanceof CompItem) {
-        var selectedLayers = comp.selectedLayers;
-
-        if (selectedLayers.length > 0 && frameDuration) {
-            app.beginUndoGroup("Adjust Layer Duration Based on Text Length");
-
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-                if (layer instanceof TextLayer) {
-                    var text = layer.property("Source Text").value.text;
-
-                    var totalFrames = text.length * frameDuration;
-                    var durationInSeconds = totalFrames / comp.frameRate;
-
-                    // Adjust the layer's end time
-                    layer.outPoint = layer.inPoint + durationInSeconds;
-                }
-            }
-
-            app.endUndoGroup();
-        } else {
-            alert("Select the text layer.");
-        }
-    } else {
-        alert("Composition is not selected.");
-    }
-}
-
-function SELECT_KEYS() {
-    try {
-        ALL_KEYFRAME_STOP();
-        for (var i = 0; i < app.project.activeItem.selectedLayers.length; i++) {
-            var myLayer = app.project.activeItem.selectedLayers[i];
-            var myEffects = myLayer.property("ADBE Time Remapping");
-            var targetKey = Number(T1_Btn_selecr_Keys_Num.text);
-            var keyCount = myEffects.numKeys;
-
-            for (var k = keyCount; k > 1; k--) {
-                if (k % (targetKey + 1) !== 0) {
-                    myEffects.removeKey(k);
-                }
-            }
-        }
-    } catch (err_message) {
-        alert(err_message, "error");
-    }
-}
-
-function ALL_KEYFRAME_STOP() {
-    try {
-        for (var i = 0; i < app.project.activeItem.selectedLayers.length; i++) {
-            var myLayer = app.project.activeItem.selectedLayers[i];
-            CHECK_TIMEREMAP_COM(myLayer);
-            app.beginUndoGroup("Stop_All");
-            RESET_TIMEREMAP(myLayer);
-            var myEffects = myLayer.property("ADBE Time Remapping");
-            var sFrameTime = myEffects.keyTime(1);
-            var eFrameTime = myEffects.keyTime(2);
-            var frameLength = eFrameTime - sFrameTime;
-            var frameLate = 1 / app.project.activeItem.frameRate;
-            for (var j = 0; j < frameLength; j += frameLate) {
-                var newKey = myEffects.addKey(j + sFrameTime);
-            }
-            for (var k = myEffects.numKeys; k > 1; k--) {
-                myEffects.setInterpolationTypeAtKey(k, KeyframeInterpolationType.HOLD, KeyframeInterpolationType.HOLD);
-            }
-            myEffects.removeKey(myEffects.numKeys);
-            app.endUndoGroup();
-        }
-    } catch (err_message) {
-        alert(err_message, "error");
-    }
-}
-
-
+    // ★★★★★End Here★★★★★
 // ◆◆TOOLTAB2◆◆
+
 
 function buildCombined2UI(panel) {
 

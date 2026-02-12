@@ -757,7 +757,7 @@ T1_Btn_spacing.onClick = function () {
 
 function buildCombined1UI(panel) {
 
-    // ★★★★★選択されたレイヤーの順序を逆にする★★★★★
+// ★★★★★選択されたレイヤーの順序を逆にする（選択範囲内）★★★★★
 
     var reverseGroup = panel.add("group", undefined);
     reverseGroup.orientation = "column";
@@ -767,10 +767,12 @@ function buildCombined1UI(panel) {
     reverseLabel.helpTip = "選択されたレイヤーの順序を逆にします";
 
     var reverseButton = reverseGroup.add("button", undefined, "逆配置");
-    reverseButton.helpTip = "上から選択されたレイヤーの順序を反転させます";
+    reverseButton.helpTip = "選択範囲内でレイヤーの順序を反転させます";
+    reverseButton.size = [120, 30];
+
     reverseButton.onClick = function () {
         reverseLayers();
-        reverseButton.active = false; // ボタンのアクティブ状態を解除
+        reverseButton.active = false;
     };
 
     function reverseLayers() {
@@ -786,22 +788,25 @@ function buildCombined1UI(panel) {
             return;
         }
 
-        app.beginUndoGroup("Reverse Selected Layers");
+        app.beginUndoGroup("選択範囲内で順序を反転");
 
-        // レイヤーの元のインデックスを記録
-        var layerIndices = [];
+        // 選択されたレイヤーの元のインデックスを収集して昇順ソート
+        var indices = [];
         for (var i = 0; i < selectedLayers.length; i++) {
-            layerIndices.push(selectedLayers[i].index);
+            indices.push(selectedLayers[i].index);
         }
+        indices.sort(function(a, b) { return a - b; });
 
-        // レイヤーを逆順に移動
-        for (var i = 0; i < selectedLayers.length; i++) {
-            var targetIndex = layerIndices[selectedLayers.length - 1 - i];
-            selectedLayers[i].moveBefore(comp.layer(targetIndex));
+        // 選択レイヤー（上から順）を、取得したインデックスの「逆順（下から順）」に配置
+        // これにより、飛び飛びの選択でもその場所を維持したまま反転します
+        for (var j = 0; j < selectedLayers.length; j++) {
+            var targetIndex = indices[selectedLayers.length - 1 - j];
+            selectedLayers[j].moveAfter(comp.layer(targetIndex));
         }
 
         app.endUndoGroup();
     }
+
 
     // ★★★★★コメントをテキストに変換し、レイヤー名をクリアする★★★★★
 
@@ -846,56 +851,68 @@ function buildCombined1UI(panel) {
         adjustTimeButton.active = false; // ボタンのアクティブ状態を解除
     };
 
-    // ★★★★★レイヤーの長さに基づいてコンポの時間を調整する★★★★★
+// ★★★★★レイヤーの長さに合わせてコンポ時間を調整（選択優先）★★★★★
 
     var adjustCompDurationGroup = panel.add("group", undefined);
     adjustCompDurationGroup.orientation = "column";
     adjustCompDurationGroup.alignment = ["fill", "top"];
 
     var adjustCompDurationLabel = adjustCompDurationGroup.add("statictext", undefined, "--レイヤー長さに基づくコンポ調整--");
-    adjustCompDurationLabel.helpTip = "レイヤーの長さに基づいてコンポの時間を調整";
+    adjustCompDurationLabel.helpTip = "選択レイヤー（未選択なら全レイヤー）に合わせてコンポ時間を調整";
 
     var adjustCompDurationButton = adjustCompDurationGroup.add("button", undefined, "コンポ時間調整");
-    adjustCompDurationButton.helpTip = "レイヤーの長さに基づいてコンポジションの時間を調整します";
-    adjustCompDurationButton.size = [120, 30]; // ボタンのサイズを指定
+    adjustCompDurationButton.helpTip = "レイヤーの範囲に基づいてコンポジションの時間を調整します";
+    adjustCompDurationButton.size = [120, 30];
 
     adjustCompDurationButton.onClick = function () {
         adjustCompDuration();
-        adjustCompDurationButton.active = false; // ボタンのアクティブ状態を解除
+        adjustCompDurationButton.active = false;
     };
 
     function adjustCompDuration() {
         var comp = app.project.activeItem;
-        if (comp != null && comp instanceof CompItem) {
-            app.beginUndoGroup("レイヤーに基づいてコンポ時間を調整");
-
-            var minInPoint = comp.duration;
-            var maxOutPoint = 0;
-
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                if (layer.inPoint < minInPoint) {
-                    minInPoint = layer.inPoint;
-                }
-                if (layer.outPoint > maxOutPoint) {
-                    maxOutPoint = layer.outPoint;
-                }
-            }
-
-            var newDuration = maxOutPoint - minInPoint;
-            comp.duration = newDuration;
-
-            for (var i = 1; i <= comp.numLayers; i++) {
-                var layer = comp.layer(i);
-                layer.startTime -= minInPoint;
-            }
-
-            comp.displayStartTime = 0;
-
-            app.endUndoGroup();
-        } else {
+        if (!(comp instanceof CompItem)) {
             alert("コンポジションを選択してください。");
+            return;
         }
+
+        // 1. 対象となるレイヤーを決定（選択があればそれを、なければ全レイヤーを）
+        var targetLayers = comp.selectedLayers.length > 0 ? comp.selectedLayers : comp.layers;
+        
+        // レイヤーが1つもない場合は終了
+        if (targetLayers.length === 0 || comp.numLayers === 0) {
+            alert("レイヤーが存在しません。");
+            return;
+        }
+
+        app.beginUndoGroup("レイヤーに基づいてコンポ時間を調整");
+
+        var minInPoint = comp.duration;
+        var maxOutPoint = 0;
+
+        // 2. 対象レイヤーの範囲を計算
+        // targetLayers が Collection（全レイヤー）か Array（選択レイヤー）かで
+        // インデックスの開始(0 or 1)が異なるため、安全なループ処理を行います
+        for (var i = 1; i <= (comp.selectedLayers.length > 0 ? targetLayers.length : comp.numLayers); i++) {
+            var layer = (comp.selectedLayers.length > 0) ? targetLayers[i-1] : comp.layer(i);
+            if (layer.inPoint < minInPoint) minInPoint = layer.inPoint;
+            if (layer.outPoint > maxOutPoint) maxOutPoint = layer.outPoint;
+        }
+
+        var newDuration = maxOutPoint - minInPoint;
+
+        if (newDuration > 0) {
+            // 3. 全レイヤーを移動させて 0秒開始にする
+            for (var j = 1; j <= comp.numLayers; j++) {
+                comp.layer(j).startTime -= minInPoint;
+            }
+
+            // 4. コンポの長さを設定
+            comp.duration = newDuration;
+            comp.displayStartTime = 0;
+        }
+
+        app.endUndoGroup();
     }
 
     // ★★★★★作業エリア内へ移動する★★★★★
@@ -963,93 +980,10 @@ function moveLayersToWorkArea() {
     // 改行を挿入
     var separator6 = panel.add("statictext", undefined, "----------------------------------------------");
 }
+
     // ★★★★★ここ迄★★★★★
-
-function reverseLayers() {
-    var comp = app.project.activeItem;
-    if (comp != null && comp instanceof CompItem) {
-        var selectedLayers = comp.selectedLayers;
-
-        if (selectedLayers.length > 1) {
-            app.beginUndoGroup("Reverse Layers");
-
-            // 選択されたレイヤーを順序の逆に配置
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-                layer.moveToBeginning();
-            }
-
-            app.endUndoGroup();
-        } else {
-            alert("複数のレイヤーを選択してください。");
-        }
-    } else {
-        alert("コンポジションが選択されていません。");
-    }
-}
-
-function convertCommentsToTextAndClearNames() {
-    var comp = app.project.activeItem;
-    if (comp != null && comp instanceof CompItem) {
-        var selectedLayers = comp.selectedLayers;
-
-        if (selectedLayers.length > 0) {
-            app.beginUndoGroup("Convert Comments to Text and Clear Layer Names");
-
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-                if (layer instanceof TextLayer) {
-                    var commentText = layer.comment;
-
-                    if (commentText != "") {
-                        layer.property("Source Text").setValue(commentText);
-                    }
-                    // レイヤー名をクリア
-                    layer.name = "";
-                }
-            }
-
-            app.endUndoGroup();
-        } else {
-            alert("テキストレイヤーを選択してください。");
-        }
-    } else {
-        alert("コンポジションが選択されていません。");
-    }
-}
-
-function adjustLayerDuration(frameDuration) {
-    var comp = app.project.activeItem;
-    if (comp != null && comp instanceof CompItem) {
-        var selectedLayers = comp.selectedLayers;
-
-        if (selectedLayers.length > 0 && frameDuration) {
-            app.beginUndoGroup("Adjust Layer Duration Based on Text Length");
-
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-                if (layer instanceof TextLayer) {
-                    var text = layer.property("Source Text").value.text;
-
-                    var totalFrames = text.length * frameDuration;
-                    var durationInSeconds = totalFrames / comp.frameRate;
-
-                    // レイヤーの終了時間を調整
-                    layer.outPoint = layer.inPoint + durationInSeconds;
-                }
-            }
-
-            app.endUndoGroup();
-        } else {
-            alert("テキストレイヤーを選択してください。");
-        }
-    } else {
-        alert("コンポジションが選択されていません。");
-    }
-}
-
-
 // ◆◆TOOLTAB2◆◆
+
 
 function buildCombined2UI(panel) {
 
