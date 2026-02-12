@@ -863,7 +863,7 @@ function buildCombined1UI(panel) {
     function adjustCompDuration() {
         var comp = app.project.activeItem;
         if (comp != null && comp instanceof CompItem) {
-            app.beginUndoGroup("Adjust Composition Duration Based on Layers");
+            app.beginUndoGroup("Adjust the comp time based on the layer");
 
             var minInPoint = comp.duration;
             var maxOutPoint = 0;
