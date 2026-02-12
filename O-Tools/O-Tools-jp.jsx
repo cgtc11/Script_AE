@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8b by Digimonkey
+// O_Tools V1.5.8c by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -907,10 +907,10 @@ function buildCombined1UI(panel) {
     moveToWorkAreaGroup.margins = [0, 10, 0, 0]; // Add top margin
 
     var moveToWorkAreaLabel = moveToWorkAreaGroup.add("statictext", undefined, "---------作業エリア先頭へ移動---------");
-    moveToWorkAreaLabel.helpTip = "Moves the selected layer to the start time of the work area";
+    moveToWorkAreaLabel.helpTip = "選択したレイヤーを作業領域に移動します";
 
     var moveToWorkAreaButton = moveToWorkAreaGroup.add("button", undefined, "移動");
-    moveToWorkAreaButton.helpTip = "Moves the selected layer to the start time of the work area";
+    moveToWorkAreaButton.helpTip = "選択したレイヤーを作業領域に移動します";
     moveToWorkAreaButton.size = [120, 30]; // Specify button size
 
     moveToWorkAreaButton.onClick = function () {
@@ -1557,6 +1557,7 @@ function buildRemoveUI(panel) {
     };
 }
 
+
 // ◆◆ShakeTAB◆◆
 // ★★★★★Shake★★★★★
 
@@ -1666,12 +1667,100 @@ function buildShakeUI(panel) {
             layer.transform.position.setValueAtTime(comp.time + duration / comp.frameRate, initialPos);
         }
 
+}
+
+      // ★★★★★小数点切り捨て★★★★★
+// ★★★★★ Floor All Values (Integer) ★★★★★
+
+    var floorPanel = panel.add("panel", undefined, "数値の整理");
+    floorPanel.alignment = ["fill", "top"];
+    
+    var floorButton = floorPanel.add("button", undefined, "小数点を切り捨て");
+    floorButton.helpTip = "選択レイヤー内の全プロパティ（トランスフォーム、エフェクト等）の数値を整数にします。";
+    floorButton.size = [200, 40];
+
+    floorButton.onClick = function() {
+        var comp = app.project.activeItem;
+        if (!(comp instanceof CompItem)) {
+            alert("コンポジションを選択してください。");
+            return;
+        }
+
+        var layers = comp.selectedLayers;
+        if (layers.length === 0) {
+            alert("レイヤーを選択してください。");
+            return;
+        }
+
+        app.beginUndoGroup("小数点の切り捨て処理");
+
+        for (var i = 0; i < layers.length; i++) {
+            processProperties(layers[i]);
+        }
+
         app.endUndoGroup();
+        // alert("処理が完了しました。");
     };
+
+    /**
+     * 全てのプロパティを再帰的に巡回し、数値を切り捨てる関数
+     */
+    function processProperties(propParent) {
+        for (var i = 1; i <= propParent.numProperties; i++) {
+            var prop = propParent.property(i);
+
+            if (prop.propertyType === PropertyType.PROPERTY) {
+                // 書き込み可能な数値型プロパティかチェック
+                if (prop.hasMinMax || prop.propertyValueType !== PropertyValueType.NO_VALUE) {
+                    try {
+                        floorPropertyValue(prop);
+                    } catch (e) {
+                        // 読み取り専用などのエラー回避
+                    }
+                }
+            } else if (prop.propertyType === PropertyType.INDEXED_GROUP || prop.propertyType === PropertyType.NAMED_GROUP) {
+                processProperties(prop);
+            }
+        }
+    }
+
+    /**
+     * プロパティの値を切り捨てる処理
+     */
+    function floorPropertyValue(prop) {
+        // キーフレームがある場合は全てのキーを処理
+        if (prop.numKeys > 0) {
+            for (var k = 1; k <= prop.numKeys; k++) {
+                var val = prop.keyValue(k);
+                prop.setValueAtKey(k, getFlooredValue(val));
+            }
+        } else {
+            // キーがない場合は現在の値を処理
+            var val = prop.value;
+            prop.setValue(getFlooredValue(val));
+        }
+    }
+
+    /**
+     * 数値または配列を切り捨てる補助関数
+     */
+    function getFlooredValue(val) {
+        if (typeof val === "number") {
+            return Math.floor(val);
+        } else if (val instanceof Array) {
+            var newArray = [];
+            for (var i = 0; i < val.length; i++) {
+                // 配列の中身が数値なら切り捨て、そうでなければそのまま
+                newArray.push(typeof val[i] === "number" ? Math.floor(val[i]) : val[i]);
+            }
+            return newArray;
+        }
+        return val;
+    }
 
         // ★★★★★Delete★★★★★
 
-// 削除機能のセクション（シンプルにボタンのみ）
+	// 削除機能のセクション（シンプルにボタンのみ）
     var deletePanel = panel.add("panel", undefined, "一括初期化");
     deletePanel.alignment = ["fill", "top"];
     
@@ -1698,16 +1787,16 @@ function buildShakeUI(panel) {
             var layer = layers[i];
 
             // 1. エフェクトをすべて削除
-            var effectsGroup = layer.property("ADBE Effect Parade");
-            while (effectsGroup && effectsGroup.numProperties > 0) {
-                effectsGroup.property(1).remove();
-            }
+            // var effectsGroup = layer.property("ADBE Effect Parade");
+            // while (effectsGroup && effectsGroup.numProperties > 0) {
+            //    effectsGroup.property(1).remove();
+            // }
 
             // 2. マスクをすべて削除
-            var maskGroup = layer.property("ADBE Mask Parade");
-            while (maskGroup && maskGroup.numProperties > 0) {
-                maskGroup.property(1).remove();
-            }
+            //var maskGroup = layer.property("ADBE Mask Parade");
+            //while (maskGroup && maskGroup.numProperties > 0) {
+            //    maskGroup.property(1).remove();
+            //}
 
             // 3. タイムリマップを無効化
             if (layer.canEnableTimeRemap && layer.timeRemapEnabled) {
@@ -1718,9 +1807,7 @@ function buildShakeUI(panel) {
             // これにより、トランスフォームだけでなくシェイプの中身やテキストの中身も対象になります
             removeAllKeysAndExpressions(layer);
         }
-
-        app.endUndoGroup();
-    };
+    }
 
     /**
      * プロパティグループを深掘りして全てのキーとエクスプレッションを消す関数
@@ -1745,11 +1832,10 @@ function buildShakeUI(panel) {
                 removeAllKeysAndExpressions(prop);
             }
         }
-            app.endUndoGroup();
-    };
-
-        // ★★★★★end★★★★★
+    }
 }
+        // ★★★★★end★★★★★
+
 
  buildUI(myPanel);
 

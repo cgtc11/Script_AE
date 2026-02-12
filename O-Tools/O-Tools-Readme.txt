@@ -1,5 +1,5 @@
 AfterEffects script.
-O_Tools_en_v1.5.8a
+O_Tools_en_v1.5.8c
 -------------------------------------
 □□□How to install□□□
 -------------------------------------
@@ -77,8 +77,9 @@ Reduce excess compo size to just the right size.
 ----------------------------------
 ★Move inside the work area
 
-Places the selected item at the top of the work area.
-This is useful for rearranging items that are outside the timeline.
+Place the selected item at the beginning of the work area.
+Items that have been trimmed will be initialized and then adjusted to fit the composition size.
+This is also useful when repositioning items that extend beyond the timeline.
 
 ----------------------------------
 ■■■Tools2■■■
@@ -134,9 +135,15 @@ This effect applies horizontal, vertical, or both types of shake more easily tha
 You can specify the shake amplitude and the duration (in frames) of the effect.
 
 ----------------------------------
-★Delete Items
+★Number Formatting
 
-Deletes all keys in the selected range
+Any decimal places will be truncated.
+
+----------------------------------
+★Batch Initialization
+
+Deletes all keys within the selected scope
 Removes expressions and various keys
-Useful for undoing actions
+Useful for starting over
+
 ----------------------------------

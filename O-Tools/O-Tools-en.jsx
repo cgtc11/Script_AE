@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8b by Digimonkey
+// O_Tools V1.5.8c by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -1764,13 +1764,101 @@ function buildShakeUI(panel) {
                 layer.transform.position.setValueAtTime(comp.time + duration / comp.frameRate, initialPos);
             }
 
-            app.endUndoGroup();
-        };
+        }
+
+      // ★★★★★rounding down★★★★★
+// ★★★★★ Floor All Values (Integer) ★★★★★
+
+    var floorPanel = panel.add("panel", undefined, "Organizing the Numbers");
+    floorPanel.alignment = ["fill", "top"];
+    
+    var floorButton = floorPanel.add("button", undefined, "Truncate");
+    floorButton.helpTip = "Convert all property values (transforms, effects, etc.) within the selected layer to integers.";
+    floorButton.size = [200, 40];
+
+    floorButton.onClick = function() {
+        var comp = app.project.activeItem;
+        if (!(comp instanceof CompItem)) {
+            alert("Please select a composition.");
+            return;
+        }
+
+        var layers = comp.selectedLayers;
+        if (layers.length === 0) {
+            alert("Please select a layer.");
+            return;
+        }
+
+        app.beginUndoGroup("Truncation of decimal points");
+
+        for (var i = 0; i < layers.length; i++) {
+            processProperties(layers[i]);
+        }
+
+        app.endUndoGroup();
+        // alert("Processing is complete.");
+    };
+
+    /**
+     * A function that recursively traverses all properties and truncates numerical values
+     */
+    function processProperties(propParent) {
+        for (var i = 1; i <= propParent.numProperties; i++) {
+            var prop = propParent.property(i);
+
+            if (prop.propertyType === PropertyType.PROPERTY) {
+                // Check if it is a writable numeric property
+                if (prop.hasMinMax || prop.propertyValueType !== PropertyValueType.NO_VALUE) {
+                    try {
+                        floorPropertyValue(prop);
+                    } catch (e) {
+                        // Avoiding errors such as read-only
+                    }
+                }
+            } else if (prop.propertyType === PropertyType.INDEXED_GROUP || prop.propertyType === PropertyType.NAMED_GROUP) {
+                processProperties(prop);
+            }
+        }
+    }
+
+    /**
+     * Process for truncating property values
+     */
+    function floorPropertyValue(prop) {
+        // Process all keys if keyframes exist
+        if (prop.numKeys > 0) {
+            for (var k = 1; k <= prop.numKeys; k++) {
+                var val = prop.keyValue(k);
+                prop.setValueAtKey(k, getFlooredValue(val));
+            }
+        } else {
+            // If the key does not exist, process the current value
+            var val = prop.value;
+            prop.setValue(getFlooredValue(val));
+        }
+    }
+
+    /**
+     * Auxiliary function for truncating numbers or arrays
+     */
+    function getFlooredValue(val) {
+        if (typeof val === "number") {
+            return Math.floor(val);
+        } else if (val instanceof Array) {
+            var newArray = [];
+            for (var i = 0; i < val.length; i++) {
+                // If the array contains numeric values, truncate them; otherwise, leave them as is.
+                newArray.push(typeof val[i] === "number" ? Math.floor(val[i]) : val[i]);
+            }
+            return newArray;
+        }
+        return val;
+    }
 
         // ★★★★★Delete★★★★★
 
-// Delete Function Section (Simply a button)
-    var deletePanel = panel.add("panel", undefined, "Initialization");
+	// Delete Function Section (Simply a button only)
+    var deletePanel = panel.add("panel", undefined, "Batch Initialization");
     deletePanel.alignment = ["fill", "top"];
     
     var deleteAllButton = deletePanel.add("button", undefined, "Delete all keys and information");
@@ -1796,16 +1884,16 @@ function buildShakeUI(panel) {
             var layer = layers[i];
 
             // 1. Remove all effects
-            var effectsGroup = layer.property("ADBE Effect Parade");
-            while (effectsGroup && effectsGroup.numProperties > 0) {
-                effectsGroup.property(1).remove();
-            }
+            // var effectsGroup = layer.property("ADBE Effect Parade");
+            // while (effectsGroup && effectsGroup.numProperties > 0) {
+            //    effectsGroup.property(1).remove();
+            // }
 
             // 2. Remove all masks
-            var maskGroup = layer.property("ADBE Mask Parade");
-            while (maskGroup && maskGroup.numProperties > 0) {
-                maskGroup.property(1).remove();
-            }
+            //var maskGroup = layer.property("ADBE Mask Parade");
+            //while (maskGroup && maskGroup.numProperties > 0) {
+            //    maskGroup.property(1).remove();
+            //}
 
             // 3. Disable Time Remap
             if (layer.canEnableTimeRemap && layer.timeRemapEnabled) {
@@ -1813,12 +1901,10 @@ function buildShakeUI(panel) {
             }
 
             // 4. Delete all property keyframes and expressions (recursively)
-            // This targets not only transforms but also the contents of shapes and text
+            // This means that not only the transform, but also the contents of the shape and the contents of the text are affected.
             removeAllKeysAndExpressions(layer);
         }
-
-        app.endUndoGroup();
-    };
+    }
 
     /**
      * Function to delve into property groups and remove all keys and expressions
@@ -1843,11 +1929,9 @@ function buildShakeUI(panel) {
                 removeAllKeysAndExpressions(prop);
             }
         }
-            app.endUndoGroup();
-    };
-
-        // ★★★★★end★★★★★
+    }
 }
+        // ★★★★★end★★★★★
 
     buildUI(myPanel);
 
