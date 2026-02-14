@@ -1,3 +1,4 @@
+<img width="551" height="359" alt="07" src="https://github.com/user-attachments/assets/08bb2e7e-c6f7-49c7-9821-25da4c35d59f" /><br>
 名前：Color2Blur<br> 
 <br>
 内容：2色をスポイトでとり、その色だけボカしをかけるフィルター。<br>
