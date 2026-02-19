@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8c by Digimonkey
+// O_Tools V1.5.8d by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -1705,7 +1705,6 @@ function buildShakeUI(panel) {
     }
 
         // ★★★★★Delete★★★★★
-
 	// 削除機能のセクション（シンプルにボタンのみ）
     var deletePanel = panel.add("panel", undefined, "一括初期化");
     deletePanel.alignment = ["fill", "top"];
@@ -1779,8 +1778,51 @@ function buildShakeUI(panel) {
             }
         }
     }
-}
+
+	// ★★★★★ErrExpDelete★★★★★
+
+    var errorFixPanel = panel.add("panel", undefined, "プロジェクト管理");
+    errorFixPanel.alignment = ["fill", "top"];
+    errorFixPanel.margins = 15;
+
+    var fixAllErrorsButton = errorFixPanel.add("button", undefined, "エラーエクスプレッションを全て無効化");
+    fixAllErrorsButton.size = [200, 40];
+
+    fixAllErrorsButton.onClick = function() {
+        var proj = app.project;
+        if (proj.numItems === 0) { alert("プロジェクトが空です。"); return; }
+        if (!confirm("プロジェクト内の全コンポをスキャンし、エラーが出ているエクスプレッションを無効化します。")) return;
+
+        app.beginUndoGroup("全プロジェクトのエラーエクスプレッションを無効化");
+        var compCount = 0; var errorCount = 0;
+
+        function disableErrorExpressions(container) {
+            for (var i = 1; i <= container.numProperties; i++) {
+                var prop = container.property(i);
+                if (prop.propertyType === PropertyType.PROPERTY) {
+                    if (prop.canSetExpression && prop.expressionEnabled && prop.expression !== "" && prop.expressionError !== "") {
+                        prop.expressionEnabled = false;
+                        errorCount++;
+                    }
+                } else if (prop.propertyType === PropertyType.INDEXED_GROUP || prop.propertyType === PropertyType.NAMED_GROUP) {
+                    disableErrorExpressions(prop);
+                }
+            }
+        }
+
+        for (var i = 1; i <= proj.numItems; i++) {
+            var item = proj.item(i);
+            if (item instanceof CompItem) {
+                compCount++;
+                for (var j = 1; j <= item.numLayers; j++) { disableErrorExpressions(item.layer(j)); }
+            }
+        }
+        app.endUndoGroup();
+        alert("完了！\nスキャンしたコンポ: " + compCount + "\n無効化したエラー: " + errorCount);
+    };
+
         // ★★★★★end★★★★★
+    }
 
 
  buildUI(myPanel);
