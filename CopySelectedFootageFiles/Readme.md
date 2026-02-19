@@ -1,4 +1,5 @@
-<img width="698" height="863" alt="スクリーンショット 2026-02-18 222745" src="https://github.com/user-attachments/assets/4b20aead-fd70-4cd4-9060-bff28c55926e" /><BR>
+
+<img width="694" height="697" alt="sssss" src="https://github.com/user-attachments/assets/6d82303e-8e5c-4a0b-88df-52a5db62da87" /><BR>
 <BR>
 名称：CopySelectedFootageFiles<BR>
 <BR>
@@ -18,6 +19,7 @@
 <BR>
 リストは階層構造でも切替表示できます。<BR>
 リストの場合はAEでの表示順、ファイルタイプ順（単品か連番か）、名前順、パス順、で表示可<BR>
+
 
 
 
