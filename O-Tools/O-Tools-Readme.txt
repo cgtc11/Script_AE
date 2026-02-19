@@ -1,5 +1,5 @@
 AfterEffects script.
-O_Tools_en_v1.5.8c
+O_Tools_en_v1.5.8d
 -------------------------------------
 □□□How to install□□□
 -------------------------------------
@@ -145,5 +145,10 @@ Any decimal places will be truncated.
 Deletes all keys within the selected scope
 Removes expressions and various keys
 Useful for starting over
+
+----------------------------------
+★Disable all error expressions
+
+Remove all expressions causing errors across the entire project
 
 ----------------------------------
