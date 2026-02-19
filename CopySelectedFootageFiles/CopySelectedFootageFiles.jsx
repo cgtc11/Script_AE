@@ -1,8 +1,8 @@
-/* CopySelectedFootageFiles_v33.jsx
+/* CopySelectedFootageFiles_v34.jsx
     - 修正点：
-        1) 【重要】連番（SEQ）時のフォルダ名重複回避に対応。
-        2) フォルダ名がリネームされた場合も、正しくその中身へ再リンクするよう調整。
-        3) 物理的なファイルコピーとAE内データの紐付けを強化。
+        1) 「コピー後リンク自動更新」チェックボックスを追加。
+        2) チェックON時、「リンク更新」ボタンを無効化（グレーアウト）。
+        3) コピー実行後、チェックがONなら自動的にリリンク処理を走らせるよう統合。
 */
 
 (function (thisObj) {
@@ -12,6 +12,7 @@
     function isSequence(it) {
         if (!it.mainSource) return false;
         if (it.mainSource.isSequence === true) return true;
+        // 保存された情報に基づき、[ ] を含むファイル名も連番（フォルダ扱い）として判定
         if (it.name.indexOf("[") !== -1 && it.name.indexOf("]") !== -1) return true;
         return false;
     }
@@ -23,19 +24,17 @@
         }
     }
 
-    // 重複しないファイル/フォルダパスを生成する
     function getUniqueStorage(parentFolder, originalName) {
         var path = parentFolder.fsName + "/" + originalName;
-        var testObj = new File(path); // FileでもFolderでもexistsは取れる
+        var testObj = new File(path);
         if (!testObj.exists) return originalName;
 
         var baseName, ext;
         var dotIdx = originalName.lastIndexOf(".");
         
-        // 拡張子の切り分け（フォルダの場合は拡張子なしとして扱う）
         if (dotIdx !== -1 && originalName.length - dotIdx <= 5) {
             baseName = originalName.substring(0, dotIdx);
-            ext = originalName.substring(dotIdx); // .jpg など
+            ext = originalName.substring(dotIdx);
         } else {
             baseName = originalName;
             ext = "";
@@ -51,7 +50,7 @@
     }
 
     function buildUI(thisObj) {
-        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Copy & Relink v33", undefined, {resizeable:true});
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Copy & Relink v34", undefined, {resizeable:true});
         win.orientation = "column";
         win.alignChildren = ["fill","fill"];
         win.margins = 10;
@@ -69,6 +68,11 @@
         var cbRename = top.add("checkbox", undefined, "同名フォルダ/ファイルはリネーム（上書き防止）");
         cbRename.value = false;
 
+        // --- 追加セクション ---
+        var cbAutoRelink = top.add("checkbox", undefined, "コピー後リンク自動更新");
+        cbAutoRelink.value = true; // デフォルトでON
+        // -----------------------
+
         btnBrowse.onClick = function() {
             var f = Folder.selectDialog();
             if(f) etDest.text = f.fsName;
@@ -78,6 +82,13 @@
         var btnRefresh = gBtns.add("button", undefined, "一覧更新");
         var btnCopy = gBtns.add("button", undefined, "選択をコピー");
         var btnRelink = gBtns.add("button", undefined, "リンク更新");
+
+        // --- 自動更新チェックによるボタン制御 ---
+        btnRelink.enabled = !cbAutoRelink.value;
+        cbAutoRelink.onClick = function() {
+            btnRelink.enabled = !this.value;
+        };
+        // ------------------------------------
 
         var tbs = win.add("tabbedpanel");
         tbs.alignment = ["fill","fill"];
@@ -98,7 +109,7 @@
             columnWidths: [60, 200, 400]
         });
         lb.alignment = ["fill","fill"];
-        lb.preferredSize.height = 600;
+        lb.preferredSize.height = 400;
 
         var tTree = tbs.add("tab", undefined, "階層表示");
         var tv = tTree.add("treeview");
@@ -120,7 +131,7 @@
                     name: it.name,
                     path: isSeq ? it.mainSource.file.parent.fsName : it.mainSource.file.fsName,
                     item: it, isSeq: isSeq, file: it.mainSource.file, parent: it.mainSource.file.parent,
-                    renamedStorageName: null // リネームされたフォルダ名またはファイル名
+                    renamedStorageName: null 
                 });
             }
             sortData(sortConfig.key, false);
@@ -190,54 +201,13 @@
             return selected;
         }
 
-        btnCopy.onClick = function() {
-            var data = getSelectedData();
-            if (data.length == 0 || etDest.text == "") return alert("対象または保存先を確認してください");
-            var destRoot = new Folder(etDest.text);
-            ensureFolder(destRoot);
-            var count = 0;
-
-            for (var i = 0; i < data.length; i++) {
-                var d = data[i];
-                if (d.isSeq) {
-                    // 連番フォルダ処理
-                    var folderName = cbRename.value ? getUniqueStorage(destRoot, d.parent.name) : d.parent.name;
-                    var subFolder = new Folder(destRoot.fsName + "/" + folderName);
-                    ensureFolder(subFolder);
-                    
-                    var files = d.parent.getFiles();
-                    for (var f = 0; f < files.length; f++) {
-                        if (files[f] instanceof File) {
-                            var targetFile = new File(subFolder.fsName + "/" + files[f].name);
-                            files[f].copy(targetFile);
-                        }
-                    }
-                    d.renamedStorageName = folderName; // 新しいフォルダ名を記録
-                    count++;
-                } else {
-                    // 単一ファイル処理
-                    var fileName = cbRename.value ? getUniqueStorage(destRoot, d.file.name) : d.file.name;
-                    var targetFile = new File(destRoot.fsName + "/" + fileName);
-                    
-                    if (d.file.copy(targetFile)) {
-                        d.renamedStorageName = fileName; // 新しいファイル名を記録
-                        count++;
-                    }
-                }
-            }
-            alert("コピー完了: " + count + "件");
-        };
-
-        btnRelink.onClick = function() {
-            var data = getSelectedData();
-            if (data.length == 0 || etDest.text == "") return;
-            var dest = new Folder(etDest.text);
+        // --- 再リンク処理を関数化 ---
+        function executeRelink(data, destPath) {
+            var dest = new Folder(destPath);
             var c = 0;
             for (var i = 0; i < data.length; i++) {
                 var d = data[i];
-                // コピー時に確定した名前（フォルダ名 or ファイル名）を使用
                 var storageName = d.renamedStorageName ? d.renamedStorageName : (d.isSeq ? d.parent.name : d.file.name);
-                
                 var targetPath = d.isSeq 
                     ? dest.fsName + "/" + storageName + "/" + d.file.name 
                     : dest.fsName + "/" + storageName;
@@ -248,6 +218,57 @@
                     c++;
                 }
             }
+            return c;
+        }
+
+        btnCopy.onClick = function() {
+            var data = getSelectedData();
+            if (data.length == 0 || etDest.text == "") return alert("対象または保存先を確認してください");
+            var destRoot = new Folder(etDest.text);
+            ensureFolder(destRoot);
+            var count = 0;
+
+            for (var i = 0; i < data.length; i++) {
+                var d = data[i];
+                if (d.isSeq) {
+                    var folderName = cbRename.value ? getUniqueStorage(destRoot, d.parent.name) : d.parent.name;
+                    var subFolder = new Folder(destRoot.fsName + "/" + folderName);
+                    ensureFolder(subFolder);
+                    var files = d.parent.getFiles();
+                    for (var f = 0; f < files.length; f++) {
+                        if (files[f] instanceof File) {
+                            var targetFile = new File(subFolder.fsName + "/" + files[f].name);
+                            files[f].copy(targetFile);
+                        }
+                    }
+                    d.renamedStorageName = folderName;
+                    count++;
+                } else {
+                    var fileName = cbRename.value ? getUniqueStorage(destRoot, d.file.name) : d.file.name;
+                    var targetFile = new File(destRoot.fsName + "/" + fileName);
+                    if (d.file.copy(targetFile)) {
+                        d.renamedStorageName = fileName;
+                        count++;
+                    }
+                }
+            }
+
+            var msg = "コピー完了: " + count + "件";
+            
+            // 自動更新がONならリリンクを実行
+            if (cbAutoRelink.value) {
+                var relinkCount = executeRelink(data, etDest.text);
+                msg += "\n自動再リンク: " + relinkCount + "件完了";
+                refresh();
+            }
+            
+            alert(msg);
+        };
+
+        btnRelink.onClick = function() {
+            var data = getSelectedData();
+            if (data.length == 0 || etDest.text == "") return;
+            var c = executeRelink(data, etDest.text);
             refresh();
             alert(c + " 件再リンク完了");
         };
