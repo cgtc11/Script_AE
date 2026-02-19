@@ -18,10 +18,15 @@
 　</h2>
   <p><strong>目的:</strong> ２つのAEとAE間で「コピー・ペースト」するツール</p>
 
-  <h2 id="copipe">
+  <h2 id="Color2Blur">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/Color2Blur">Color2Blur</a>
 　</h2>
   <p><strong>目的:</strong> 2色だけにボカしをかけるフィルター</p>
+
+  <h2 id="CopySelectedFootageFiles">
+  <a href="https://github.com/cgtc11/Script_AE/tree/main/CopySelectedFootageFiles">CopySelectedFootageFiles</a>
+　</h2>
+  <p><strong>目的:</strong> 素材を別の場所に移してリンクを繋げ直すスクリプト</p>
 
   <h2 id="fxcopypastetool">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/FxCopyPasteTool">FxCopyPasteTool</a>
@@ -32,6 +37,11 @@
   <a href="https://github.com/cgtc11/Script_AE/tree/main/O-Tools">o-tools</a>
 　</h2>
   <p><strong>目的:</strong> よく使う AE 作業をまとめた多機能パネル。名称編集、タイムリマップ、整列、削除、シェイプ操作など</p>
+
+  <h2 id="SelectItemsInFolder">
+  <a href="https://github.com/cgtc11/Script_AE/tree/main/SelectItemsInFolder">SelectItemsInFolder</a>
+　</h2>
+  <p><strong>目的:</strong> フォルダ以下にあるファイルやコンポを全て選択</p>
  
   <h2 id="shapedetriming">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/ShapeDeTriming">ShapeDeTriming</a>
@@ -39,5 +49,5 @@
   <p><strong>目的:</strong> 長方形シェイプレイヤーで囲ってる範囲をトリミングする</p>
  
   <h2 id="support">問い合わせ</h2>
-  <p>再現手順と AE バージョン、OS、使用エフェクト名を記載してください。</p>
+  <p>不具合、要望は再現手順と AE バージョン、OS、使用エフェクト名を記載してご連絡ください。</p>
 </section>
