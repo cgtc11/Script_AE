@@ -987,68 +987,87 @@ function moveLayersToWorkArea() {
 
 function buildCombined2UI(panel) {
 
-    // ★★★★★選択されたレイヤーの名前をクリア★★★★★
+// ★★★★★選択されたレイヤーの名前をクリア（完全版）★★★★★
 
-    var clearNamesGroup = panel.add("group", undefined);
-    clearNamesGroup.orientation = "column";
-    clearNamesGroup.alignment = ["fill", "top"];
+var clearNamesGroup = panel.add("group", undefined);
+clearNamesGroup.orientation = "column";
+clearNamesGroup.alignment = ["fill", "top"];
 
-    // 説明ラベル
-    var clearNamesLabel = clearNamesGroup.add("statictext", undefined, "-------------名前を初期化-------------");
-    clearNamesLabel.helpTip = "選択されたレイヤーの名前をクリアします";
+// 説明ラベル
+var clearNamesLabel = clearNamesGroup.add("statictext", undefined, "-------------名前を初期化-------------");
 
-    // チェックボックスを追加
-    var convertToEnglishCheckBox = clearNamesGroup.add("checkbox", undefined, "カメラ、ライト、シェイプ、ヌル、は英語");
-    convertToEnglishCheckBox.value = false; // デフォルトでチェックを外す
+// チェックボックス
+var convertToEnglishCheckBox = clearNamesGroup.add("checkbox", undefined, "カメラ, ライト, シェイプ, ヌルを英語化");
+convertToEnglishCheckBox.value = false;
 
-    // 初期化ボタン
-    var clearButton = clearNamesGroup.add("button", undefined, "初期化");
-    clearButton.helpTip = "名前をクリア。カメラ、ライト、シェイプは英語に変換します";
-    clearButton.onClick = function () {
-        var comp = app.project.activeItem;
-        if (comp != null && comp instanceof CompItem) {
-            app.beginUndoGroup("Clear Layer Names");
+// 初期化ボタン
+var clearButton = clearNamesGroup.add("button", undefined, "初期化");
+clearButton.onClick = function () {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        app.beginUndoGroup("Clear and Rename Layers");
 
-            var selectedLayers = comp.selectedLayers;
-            var camCount = 0;
-            var litCount = 0;
-            var shapeCount = 0;
-            var nullCount = 0;
+        var selectedLayers = comp.selectedLayers;
+        
+        // 重複を避けて「Cam01」「Cam02」などのユニークな名前を作る関数
+        function getUniqueName(baseName) {
+            var counter = 1;
+            var finalName = baseName + "01";
+            var exists = true;
 
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
-
-                if (convertToEnglishCheckBox.value) {
-                    // チェックボックスがオンの場合は英語に変換
-                    if (layer instanceof CameraLayer) {
-                        camCount++;
-                        layer.name = "Cam" + (camCount < 10 ? "0" : "") + camCount;
-                    } else if (layer instanceof LightLayer) {
-                        litCount++;
-                        layer.name = "Lit" + (litCount < 10 ? "0" : "") + litCount;
-                    } else if (layer.matchName === "ADBE Vector Layer") { // シェイプレイヤー
-                        shapeCount++;
-                        layer.name = "Shape" + (shapeCount < 10 ? "0" : "") + shapeCount;
-                    } else if (layer.nullLayer) { // Nullレイヤーの場合
-                        nullCount++;
-                        layer.name = "Null" + (nullCount < 10 ? "0" : "") + nullCount;
-                    } else {
-                        layer.name = ""; // その他のレイヤーは空の名前にする
-                    }
-                } else {
-                    // チェックボックスがオフの場合はヌルと通常レイヤーのみ初期化
-                    if (layer.nullLayer || !(layer instanceof CameraLayer || layer instanceof LightLayer || layer.matchName === "ADBE Vector Layer")) {
-                        layer.name = ""; // 名前を空に初期化
+            while (exists) {
+                exists = false;
+                for (var j = 1; j <= comp.numLayers; j++) {
+                    if (comp.layer(j).name === finalName) {
+                        counter++;
+                        var numStr = (counter < 10 ? "0" : "") + counter;
+                        finalName = baseName + numStr;
+                        exists = true;
+                        break;
                     }
                 }
+                if (counter > 99) break; // 安全装置
             }
-
-            app.endUndoGroup();
-        } else {
-            alert("コンポジションを選択してください");
+            return finalName;
         }
-        clearButton.active = false; // ボタンのアクティブ状態を解除
-    };
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+
+            if (convertToEnglishCheckBox.value) {
+                // --- 英語化フラグONの場合 ---
+
+                // 1. カメラ判定
+                if (layer instanceof CameraLayer) {
+                    layer.name = getUniqueName("Cam");
+                } 
+                // 2. ライト判定
+                else if (layer instanceof LightLayer) {
+                    layer.name = getUniqueName("Lit");
+                } 
+                // 3. シェイプ判定
+                else if (layer.matchName === "ADBE Vector Layer") {
+                    layer.name = getUniqueName("Shape");
+                } 
+                // 4. ヌル判定（プロパティ、またはソース名に「ヌル」が含まれる場合をカバー）
+                else if (layer.nullLayer || (layer.source && layer.source.name.indexOf("ヌル") !== -1) || (layer.source && layer.source.name.indexOf("Null") !== -1)) {
+                    layer.name = getUniqueName("Null");
+                } 
+                // 5. その他（平面やフッテージなど）
+                else {
+                    layer.name = ""; // 空にするとソース名に戻る
+                }
+            } else {
+                // --- 英語化フラグOFFの場合 ---
+                layer.name = ""; // 名前をクリアして After Effects デフォルトの状態にする
+            }
+        }
+
+        app.endUndoGroup();
+    } else {
+        alert("コンポジションを選択してください");
+    }
+};
 
     // ★★★★★選択したアイテムの名前にサイズ情報を追加・更新★★★★★
     var sizeUpdateGroup = panel.add("group", undefined);
@@ -1345,7 +1364,7 @@ function buildCombined2UI(panel) {
 }
 
 
-    // ◆◆RemoveTAB◆◆
+// ◆◆RemoveTAB◆◆
 
 function buildRemoveUI(panel) {
     var group = panel.add("group", undefined);
@@ -1353,7 +1372,7 @@ function buildRemoveUI(panel) {
     group.alignment = ["fill", "top"];
 
     var separatorText = panel.add("statictext", undefined, "重複したものを削除します");
-    separatorText.alignment = "center"; // 中央揃えにする場合
+    separatorText.alignment = "center";
 
     var checkButton = panel.add("button", undefined, "調べる");
     checkButton.helpTip = "指定した条件に基づいて重複アイテムを検索します";
@@ -1372,27 +1391,21 @@ function buildRemoveUI(panel) {
     checkBoxGroup.alignChildren = ["left", "top"];
 
     var includeSubfoldersCheckBox = checkBoxGroup.add("checkbox", undefined, "サブフォルダを含める");
-    includeSubfoldersCheckBox.helpTip = "選択されたフォルダ内のサブフォルダも検索対象に含めます";
     includeSubfoldersCheckBox.value = true;
 
     var nameCheckBox = checkBoxGroup.add("checkbox", undefined, "名前でチェック");
-    nameCheckBox.helpTip = "アイテムの名前に基づいて重複を確認します";
     nameCheckBox.value = false;
 
     var ignoreNumbersCheckBox = checkBoxGroup.add("checkbox", undefined, "名前でチェック(数字_-xX*＊は無視)");
-    ignoreNumbersCheckBox.helpTip = "名前のうち数字や特定の記号を無視して重複を確認します";
     ignoreNumbersCheckBox.value = true;
 
     var sizeCheckBox = checkBoxGroup.add("checkbox", undefined, "大きさでチェック");
-    sizeCheckBox.helpTip = "アイテムのサイズ（幅と高さ）で重複を確認します";
     sizeCheckBox.value = true;
 
     var includeCompsCheckBox = checkBoxGroup.add("checkbox", undefined, "コンポを含める");
-    includeCompsCheckBox.helpTip = "検索条件にコンポジションアイテムを含めます";
     includeCompsCheckBox.value = false;
 
     var executeButton = panel.add("button", undefined, "実行");
-    executeButton.helpTip = "検索で検出された重複アイテムを統合または削除します";
 
     var selectedFolder;
     var duplicatesCount = 0;
@@ -1413,6 +1426,7 @@ function buildRemoveUI(panel) {
                         continue;
                     }
 
+                    // エクスプレッションの有無に関わらず、名前とサイズで重複を判定
                     var nameKey = "";
                     if (nameCheckBox.value || ignoreNumbersCheckBox.value) {
                         nameKey = ignoreNumbersCheckBox.value ? item.name.replace(/[\d_xX\*\＊\-]/g, "") : item.name;
@@ -1435,7 +1449,6 @@ function buildRemoveUI(panel) {
 
         processFolder(folder);
         resultText.text = "重複数: " + duplicatesCount;
-        folderPath.text = folder.name;
     }
 
     function executeConsolidation() {
@@ -1490,7 +1503,6 @@ function buildRemoveUI(panel) {
         }
     };
 }
-
 
 // ◆◆ShakeTAB◆◆
 // ★★★★★Shake★★★★★

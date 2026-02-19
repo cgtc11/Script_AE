@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8c by Digimonkey
+// O_Tools V1.5.8b by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -753,51 +753,47 @@ var stopKeysLabel = stopKeysGroup.add("statictext", undefined, "----------------
 
 function buildCombined1UI(panel) {
 
-// ★★★★★ Reverse the Order of Selected Layers (Within Selection) ★★★★★
+    // ★★★★★Reverse the order of the selected layers★★★★★
 
     var reverseGroup = panel.add("group", undefined);
     reverseGroup.orientation = "column";
     reverseGroup.alignment = ["fill", "top"];
 
-    var reverseLabel = reverseGroup.add("statictext", undefined, "------- Reverse Layer Order -------");
-    reverseLabel.helpTip = "Reverses the order of the selected layers";
+    var reverseLabel = reverseGroup.add("statictext", undefined, "---------Reverse Selected Layers---------");
+    reverseLabel.helpTip = "Reverse the order of selected layers";
 
     var reverseButton = reverseGroup.add("button", undefined, "Reverse Layers");
-    reverseButton.helpTip = "Reverses the order of layers within the selected range";
-    reverseButton.size = [150, 30]; // Adjusted for English text
-
+    reverseButton.helpTip = "Reverses the order of selected layers";
     reverseButton.onClick = function () {
         reverseLayers();
-        reverseButton.active = false;
+        reverseButton.active = false; // Deactivate the button
     };
 
     function reverseLayers() {
         var comp = app.project.activeItem;
         if (!(comp && comp instanceof CompItem)) {
-            alert("Please select an active composition.");
+            alert("Select the active composition.");
             return;
         }
 
         var selectedLayers = comp.selectedLayers;
         if (selectedLayers.length < 2) {
-            alert("Please select at least two layers.");
+            alert("Select at least two layers.");
             return;
         }
 
-        app.beginUndoGroup("Reverse Selected Layers Order");
+        app.beginUndoGroup("Reverse Selected Layers");
 
-        // 1. Collect original indices of selected layers and sort them ascending
-        var indices = [];
+        // Record the original indices of the layers
+        var layerIndices = [];
         for (var i = 0; i < selectedLayers.length; i++) {
-            indices.push(selectedLayers[i].index);
+            layerIndices.push(selectedLayers[i].index);
         }
-        indices.sort(function(a, b) { return a - b; });
 
-        // 2. Move selected layers (from top to bottom) to the target indices in reverse order
-        // This maintains their relative position even if the selection is non-consecutive
-        for (var j = 0; j < selectedLayers.length; j++) {
-            var targetIndex = indices[selectedLayers.length - 1 - j];
-            selectedLayers[j].moveAfter(comp.layer(targetIndex));
+        // Move the layers in reverse order
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var targetIndex = layerIndices[selectedLayers.length - 1 - i];
+            selectedLayers[i].moveBefore(comp.layer(targetIndex));
         }
 
         app.endUndoGroup();
@@ -846,68 +842,56 @@ function buildCombined1UI(panel) {
         adjustTimeButton.active = false; // Deactivate the button
     };
 
-// ★★★★★ Adjust Comp Duration Based on Layer Length (Selection Priority) ★★★★★
+    // ★★★★★Adjust the comp duration based on the length of the layers★★★★★
 
     var adjustCompDurationGroup = panel.add("group", undefined);
     adjustCompDurationGroup.orientation = "column";
     adjustCompDurationGroup.alignment = ["fill", "top"];
 
-    var adjustCompDurationLabel = adjustCompDurationGroup.add("statictext", undefined, "-- Adjust Comp to Layer Length --");
-    adjustCompDurationLabel.helpTip = "Adjust comp duration based on selected layers (or all layers if none selected)";
+    var adjustCompDurationLabel = adjustCompDurationGroup.add("statictext", undefined, "----Component time adjustment----");
+    adjustCompDurationLabel.helpTip = "Adjusts the duration of the composition based on the length of the layer";
 
-    var adjustCompDurationButton = adjustCompDurationGroup.add("button", undefined, "Adjust Comp Duration");
-    adjustCompDurationButton.helpTip = "Adjusts the composition duration based on the range of the layers";
-    adjustCompDurationButton.size = [150, 30]; // Slightly wider for English text
+    var adjustCompDurationButton = adjustCompDurationGroup.add("button", undefined, "Component time adjustment");
+    adjustCompDurationButton.helpTip = "Composition durations based on layer length";
+    //adjustCompDurationButton.size = [120, 30]; // Set button size
 
     adjustCompDurationButton.onClick = function () {
         adjustCompDuration();
-        adjustCompDurationButton.active = false;
+        adjustCompDurationButton.active = false; // Deactivate the button
     };
 
     function adjustCompDuration() {
         var comp = app.project.activeItem;
-        if (!(comp instanceof CompItem)) {
-            alert("Please select a composition.");
-            return;
-        }
+        if (comp != null && comp instanceof CompItem) {
+            app.beginUndoGroup("Adjust Composition Duration Based on Layers");
 
-        // 1. Determine target layers (selected layers if any, otherwise all layers)
-        var hasSelection = comp.selectedLayers.length > 0;
-        var targetLayers = hasSelection ? comp.selectedLayers : comp.layers;
-        
-        // Exit if no layers exist
-        if (targetLayers.length === 0 || comp.numLayers === 0) {
-            alert("No layers found.");
-            return;
-        }
+            var minInPoint = comp.duration;
+            var maxOutPoint = 0;
 
-        app.beginUndoGroup("Adjust Comp Duration Based on Layers");
-
-        var minInPoint = comp.duration;
-        var maxOutPoint = 0;
-
-        // 2. Calculate the range of target layers
-        var loopCount = hasSelection ? targetLayers.length : comp.numLayers;
-        for (var i = 1; i <= loopCount; i++) {
-            var layer = hasSelection ? targetLayers[i-1] : comp.layer(i);
-            if (layer.inPoint < minInPoint) minInPoint = layer.inPoint;
-            if (layer.outPoint > maxOutPoint) maxOutPoint = layer.outPoint;
-        }
-
-        var newDuration = maxOutPoint - minInPoint;
-
-        if (newDuration > 0) {
-            // 3. Offset all layers to start at 0 seconds
-            for (var j = 1; j <= comp.numLayers; j++) {
-                comp.layer(j).startTime -= minInPoint;
+            for (var i = 1; i <= comp.numLayers; i++) {
+                var layer = comp.layer(i);
+                if (layer.inPoint < minInPoint) {
+                    minInPoint = layer.inPoint;
+                }
+                if (layer.outPoint > maxOutPoint) {
+                    maxOutPoint = layer.outPoint;
+                }
             }
 
-            // 4. Set new composition duration
+            var newDuration = maxOutPoint - minInPoint;
             comp.duration = newDuration;
-            comp.displayStartTime = 0;
-        }
 
-        app.endUndoGroup();
+            for (var i = 1; i <= comp.numLayers; i++) {
+                var layer = comp.layer(i);
+                layer.startTime -= minInPoint;
+            }
+
+            comp.displayStartTime = 0;
+
+            app.endUndoGroup();
+        } else {
+            alert("Please select a composition.");
+        }
     }
 
     // ★★★★★Move inside the work area★★★★★
@@ -955,78 +939,297 @@ function buildCombined1UI(panel) {
         }
     }
 
+    // ★★★★★ Add/Update size information to the names of selected items ★★★★★
+
+    var sizeUpdateGroup = panel.add("group", undefined);
+    sizeUpdateGroup.orientation = "column";
+    sizeUpdateGroup.alignment = ["fill", "top"];
+
+    var sizeUpdateLabel = sizeUpdateGroup.add("statictext", undefined, "--Add/Update _Size to the end of the name--");
+    sizeUpdateLabel.helpTip = "Add or update size information to the names of selected items";
+
+    var sizeUpdateButton = sizeUpdateGroup.add("button", undefined, "Add/Update Size");
+    sizeUpdateButton.helpTip = "Add or update size information to the names of the selected items";
+
+    sizeUpdateButton.onClick = function () {
+        addOrUpdateSizeInSelectedItems();
+    };
+
+    function addOrUpdateSizeInSelectedItems() {
+        app.beginUndoGroup("Rename Selected Items with Size");
+
+        var selectedItems = app.project.selection;
+        var activeComp = app.project.activeItem;
+
+        // Show an alert if no items are selected in both the Project panel and the Timeline panel
+        if (selectedItems.length === 0 && !(activeComp instanceof CompItem && activeComp.selectedLayers.length > 0)) {
+            alert("Please select items in either the Project panel or the Timeline panel.");
+            return;
+        }
+
+        // Size pattern (e.g., _1366x768, _1366＊768, _1366*768, _1366X768)
+        var sizePattern = /(_\d+[xX＊*]\d+)$/;
+
+        // Update size information for selected items in the Project panel
+        for (var i = 0; i < selectedItems.length; i++) {
+            var item = selectedItems[i];
+
+            // Process only if the item is a Footage or Comp item
+            if (item instanceof FootageItem || item instanceof CompItem) {
+                var itemWidth = item.width;
+                var itemHeight = item.height;
+                var sizeString = "_" + itemWidth + "*" + itemHeight;
+
+                // If the name already contains size information, remove it and add the new size information
+                var newName = item.name.replace(sizePattern, "");  // Remove existing size information
+                newName += sizeString;  // Add new size information
+                item.name = newName;
+            }
+        }
+
+        // Update size information for the source items of the selected layers in the Timeline panel
+        if (activeComp instanceof CompItem) {
+            var selectedLayers = activeComp.selectedLayers;
+            for (var j = 0; j < selectedLayers.length; j++) {
+                var layer = selectedLayers[j];
+                var source = layer.source;
+
+                if (source instanceof FootageItem || source instanceof CompItem) {
+                    var sourceWidth = source.width;
+                    var sourceHeight = source.height;
+                    var sizeString = "_" + sourceWidth + "*" + sourceHeight;
+
+                    // If the name already contains size information, remove it and add the new size information
+                    var newName = source.name.replace(sizePattern, "");  // Remove existing size information
+                    newName += sizeString;  // Add new size information
+                    source.name = newName;
+                }
+            }
+        }
+        app.endUndoGroup();
+    }
+
+    // ★★★★★End Here★★★★★
+
     // Insert a line separator
     var separator6 = panel.add("statictext", undefined, "----------------------------------------------");
 }
 
-    // ★★★★★End Here★★★★★
-// ◆◆TOOLTAB2◆◆
+function reverseLayers() {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        var selectedLayers = comp.selectedLayers;
 
+        if (selectedLayers.length > 1) {
+            app.beginUndoGroup("Reverse Layers");
 
-function buildCombined2UI(panel) {
+            // Arrange the selected layers in reverse order
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                layer.moveToBeginning();
+            }
 
-    // ★★★★★Clear the names of the selected layers★★★★★
+            app.endUndoGroup();
+        } else {
+            alert("Select multiple layers.");
+        }
+    } else {
+        alert("Composition is not selected.");
+    }
+}
 
-    var clearNamesGroup = panel.add("group", undefined);
-    clearNamesGroup.orientation = "column";
-    clearNamesGroup.alignment = ["fill", "top"];
+function convertCommentsToTextAndClearNames() {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        var selectedLayers = comp.selectedLayers;
 
-    // explanatory label
-    var clearNamesLabel = clearNamesGroup.add("statictext", undefined, "-----------Clear Layer Names-----------");
-    clearNamesLabel.helpTip = "Clears the name of the selected layer";
-
-    // Add checkbox
-    var convertToEnglishCheckBox = clearNamesGroup.add("checkbox", undefined, "Camera, Light, Shape, Null, is English");
-    convertToEnglishCheckBox.value = false; // Uncheck by default
-
-    // initialize button
-    var clearButton = clearNamesGroup.add("button", undefined, "Clear Layer Names");
-    clearButton.helpTip = "Clear name. Camera, lights, shapes convert to English.";
-    clearButton.onClick = function () {
-        var comp = app.project.activeItem;
-        if (comp != null && comp instanceof CompItem) {
-            app.beginUndoGroup("Clear Layer Names");
-
-            var selectedLayers = comp.selectedLayers;
-            var camCount = 0;
-            var litCount = 0;
-            var shapeCount = 0;
-            var nullCount = 0;
+        if (selectedLayers.length > 0) {
+            app.beginUndoGroup("Convert Comments to Text and Clear Layer Names");
 
             for (var i = 0; i < selectedLayers.length; i++) {
                 var layer = selectedLayers[i];
+                if (layer instanceof TextLayer) {
+                    var commentText = layer.comment;
 
-                if (convertToEnglishCheckBox.value) {
-                    // Converted to English if check box is on
-                    if (layer instanceof CameraLayer) {
-                        camCount++;
-                        layer.name = "Cam" + (camCount < 10 ? "0" : "") + camCount;
-                    } else if (layer instanceof LightLayer) {
-                        litCount++;
-                        layer.name = "Lit" + (litCount < 10 ? "0" : "") + litCount;
-                    } else if (layer.matchName === "ADBE Vector Layer") { // shape player
-                        shapeCount++;
-                        layer.name = "Shape" + (shapeCount < 10 ? "0" : "") + shapeCount;
-                    } else if (layer.nullLayer) { // For Null Layer
-                        nullCount++;
-                        layer.name = "Null" + (nullCount < 10 ? "0" : "") + nullCount;
-                    } else {
-                        layer.name = ""; // Other layers should have empty names
+                    if (commentText != "") {
+                        layer.property("Source Text").setValue(commentText);
                     }
-                } else {
-                    // If the checkbox is unchecked, only null and normal layers are initialized
-                    if (layer.nullLayer || !(layer instanceof CameraLayer || layer instanceof LightLayer || layer.matchName === "ADBE Vector Layer")) {
-                        layer.name = ""; // Initialize name to empty
-                    }
+                    // Clear the layer name
+                    layer.name = "";
                 }
             }
 
             app.endUndoGroup();
         } else {
-            alert("Please select a composition");
+            alert("Select the text layer.");
         }
-        clearButton.active = false; // Deactivates the active state of the button
-    };
+    } else {
+        alert("Composition is not selected.");
+    }
+}
+
+function adjustLayerDuration(frameDuration) {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        var selectedLayers = comp.selectedLayers;
+
+        if (selectedLayers.length > 0 && frameDuration) {
+            app.beginUndoGroup("Adjust Layer Duration Based on Text Length");
+
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer instanceof TextLayer) {
+                    var text = layer.property("Source Text").value.text;
+
+                    var totalFrames = text.length * frameDuration;
+                    var durationInSeconds = totalFrames / comp.frameRate;
+
+                    // Adjust the layer's end time
+                    layer.outPoint = layer.inPoint + durationInSeconds;
+                }
+            }
+
+            app.endUndoGroup();
+        } else {
+            alert("Select the text layer.");
+        }
+    } else {
+        alert("Composition is not selected.");
+    }
+}
+
+function SELECT_KEYS() {
+    try {
+        ALL_KEYFRAME_STOP();
+        for (var i = 0; i < app.project.activeItem.selectedLayers.length; i++) {
+            var myLayer = app.project.activeItem.selectedLayers[i];
+            var myEffects = myLayer.property("ADBE Time Remapping");
+            var targetKey = Number(T1_Btn_selecr_Keys_Num.text);
+            var keyCount = myEffects.numKeys;
+
+            for (var k = keyCount; k > 1; k--) {
+                if (k % (targetKey + 1) !== 0) {
+                    myEffects.removeKey(k);
+                }
+            }
+        }
+    } catch (err_message) {
+        alert(err_message, "error");
+    }
+}
+
+function ALL_KEYFRAME_STOP() {
+    try {
+        for (var i = 0; i < app.project.activeItem.selectedLayers.length; i++) {
+            var myLayer = app.project.activeItem.selectedLayers[i];
+            CHECK_TIMEREMAP_COM(myLayer);
+            app.beginUndoGroup("Stop_All");
+            RESET_TIMEREMAP(myLayer);
+            var myEffects = myLayer.property("ADBE Time Remapping");
+            var sFrameTime = myEffects.keyTime(1);
+            var eFrameTime = myEffects.keyTime(2);
+            var frameLength = eFrameTime - sFrameTime;
+            var frameLate = 1 / app.project.activeItem.frameRate;
+            for (var j = 0; j < frameLength; j += frameLate) {
+                var newKey = myEffects.addKey(j + sFrameTime);
+            }
+            for (var k = myEffects.numKeys; k > 1; k--) {
+                myEffects.setInterpolationTypeAtKey(k, KeyframeInterpolationType.HOLD, KeyframeInterpolationType.HOLD);
+            }
+            myEffects.removeKey(myEffects.numKeys);
+            app.endUndoGroup();
+        }
+    } catch (err_message) {
+        alert(err_message, "error");
+    }
+}
+
+
+// ◆◆TOOLTAB2◆◆
+
+function buildCombined2UI(panel) {
+
+// ★★★★★ Clear Selected Layer Names (English Ver.) ★★★★★
+
+var clearNamesGroup = panel.add("group", undefined);
+clearNamesGroup.orientation = "column";
+clearNamesGroup.alignment = ["fill", "top"];
+
+// Label
+var clearNamesLabel = clearNamesGroup.add("statictext", undefined, "------------- Reset Names -------------");
+
+// Checkbox
+var convertToEnglishCheckBox = clearNamesGroup.add("checkbox", undefined, "Englishize Cam, Lit, Shape, Null");
+convertToEnglishCheckBox.value = false;
+
+// Reset Button
+var clearButton = clearNamesGroup.add("button", undefined, "Initialize");
+clearButton.onClick = function () {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        app.beginUndoGroup("Clear and Rename Layers");
+
+        var selectedLayers = comp.selectedLayers;
+        
+        // Function to create unique names like "Cam01", "Cam02"
+        function getUniqueName(baseName) {
+            var counter = 1;
+            var finalName = baseName + "01";
+            var exists = true;
+
+            while (exists) {
+                exists = false;
+                for (var j = 1; j <= comp.numLayers; j++) {
+                    if (comp.layer(j).name === finalName) {
+                        counter++;
+                        var numStr = (counter < 10 ? "0" : "") + counter;
+                        finalName = baseName + numStr;
+                        exists = true;
+                        break;
+                    }
+                }
+                if (counter > 99) break; // Safety break
+            }
+            return finalName;
+        }
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+
+            if (convertToEnglishCheckBox.value) {
+                // --- Englishize Mode ---
+
+                // 1. Camera
+                if (layer instanceof CameraLayer) {
+                    layer.name = getUniqueName("Cam");
+                } 
+                // 2. Light
+                else if (layer instanceof LightLayer) {
+                    layer.name = getUniqueName("Lit");
+                } 
+                // 3. Shape Layer
+                else if (layer.matchName === "ADBE Vector Layer") {
+                    layer.name = getUniqueName("Shape");
+                } 
+                // 4. Null Layer (Checks property or if source name contains "Null" or "ヌル")
+                else if (layer.nullLayer || (layer.source && layer.source.name.indexOf("ヌル") !== -1) || (layer.source && layer.source.name.indexOf("Null") !== -1)) {
+                    layer.name = getUniqueName("Null");
+                } 
+                // 5. Others (Solids, Footage, etc.)
+                else {
+                    layer.name = ""; // Resets to Source Name
+                }
+            } else {
+                // --- Standard Mode ---
+                layer.name = ""; // Resets to Default
+            }
+        }
+
+        app.endUndoGroup();
+    } else {
+        alert("Please select a composition.");
+    }
+};
 
 // ★★★★★ Add or Update Size Info to Selected Item Names ★★★★★
 var sizeUpdateGroup = panel.add("group", undefined);
@@ -1323,53 +1526,54 @@ centerButton.onClick = function () {
 }
 
 
-    // ◆◆RemoveDTAB◆◆
+// ◆◆RemoveTAB◆◆
 
 function buildRemoveUI(panel) {
-    panel.orientation = "column";
-    panel.alignChildren = ["fill", "top"];
+    var group = panel.add("group", undefined);
+    group.orientation = "column";
+    group.alignment = ["fill", "top"];
 
-    var separatorText = panel.add("statictext", undefined, "Duplicates will be removed");
-    separatorText.alignment = "center"; // Center alignment
+    var separatorText = panel.add("statictext", undefined, "Remove Duplicate Items");
+    separatorText.alignment = "center";
 
- var checkButton = panel.add("button", undefined, "Start searching in the folder");
- checkButton.helpTip = "Searches for duplicate items based on specified criteria";
+    var checkButton = panel.add("button", undefined, "Scan");
+    checkButton.helpTip = "Search for duplicate items based on specified conditions";
 
- var folderGroup = panel.add("group");
- folderGroup.add("statictext", undefined, "select folder:");
- var folderPath = folderGroup.add("edittext", undefined, "");
- folderPath.characters = 20;
- folderPath.helpTip = "Specify a folder to search for duplicate items";
+    var folderGroup = panel.add("group");
+    folderGroup.add("statictext", undefined, "Selected Folder:");
+    var folderPath = folderGroup.add("edittext", undefined, "");
+    folderPath.characters = 20;
+    folderPath.helpTip = "The folder where duplicates will be searched";
 
- var resultText = panel.add("statictext", undefined, "Duplication: 0");
- resultText.helpTip = "Displays the number of duplicate items found in the search";
+    var resultText = panel.add("statictext", undefined, "Duplicates Found: 0");
+    resultText.helpTip = "Displays the number of duplicate items detected";
 
- var checkBoxGroup = panel.add("panel", undefined, "double condition");
- checkBoxGroup.orientation = "column";
- checkBoxGroup.alignChildren = ["left", "top"];
+    var checkBoxGroup = panel.add("panel", undefined, "Search Criteria");
+    checkBoxGroup.orientation = "column";
+    checkBoxGroup.alignChildren = ["left", "top"];
 
- var includeSubfoldersCheckBox = checkBoxGroup.add("checkbox", undefined, "Include subfolders");
- includeSubfoldersCheckBox.helpTip = "Subfolders within the selected folder are also included in the search";
- includeSubfoldersCheckBox.value = true;
+    var includeSubfoldersCheckBox = checkBoxGroup.add("checkbox", undefined, "Include Subfolders");
+    includeSubfoldersCheckBox.helpTip = "Search within subfolders of the selected folder";
+    includeSubfoldersCheckBox.value = true;
 
- var nameCheckBox = checkBoxGroup.add("checkbox", undefined, "Check by name");
- nameCheckBox.helpTip = "Checks for duplicates based on item name";
- nameCheckBox.value = false;
+    var nameCheckBox = checkBoxGroup.add("checkbox", undefined, "Check by Name");
+    nameCheckBox.helpTip = "Identify duplicates based on the item name";
+    nameCheckBox.value = false;
 
- var ignoreNumbersCheckBox = checkBoxGroup.add("checkbox", undefined, "Check by name (ignore numbers)");
- ignoreNumbersCheckBox.helpTip = "Ignore the numbers among the names to check for duplicates";
- ignoreNumbersCheckBox.value = true;
+    var ignoreNumbersCheckBox = checkBoxGroup.add("checkbox", undefined, "Check Name (Ignore Numbers/Symbols)");
+    ignoreNumbersCheckBox.helpTip = "Ignore numbers and specific symbols (_-xX* etc.) when checking names";
+    ignoreNumbersCheckBox.value = true;
 
- var sizeCheckBox = checkBoxGroup.add("checkbox", undefined, "Check by size");
- sizeCheckBox.helpTip = "Check for duplicates by item size (width and height)";
- sizeCheckBox.value = true;
+    var sizeCheckBox = checkBoxGroup.add("checkbox", undefined, "Check by Dimensions");
+    sizeCheckBox.helpTip = "Identify duplicates based on width and height";
+    sizeCheckBox.value = true;
 
- var includeCompsCheckBox = checkBoxGroup.add("checkbox", undefined, "include compo");
- includeCompsCheckBox.helpTip = "Include composition items in the search criteria";
- includeCompsCheckBox.value = false;
+    var includeCompsCheckBox = checkBoxGroup.add("checkbox", undefined, "Include Compositions");
+    includeCompsCheckBox.helpTip = "Include Composition items in the search";
+    includeCompsCheckBox.value = false;
 
- var executeButton = panel.add("button", undefined, "Deleted after summarizing the same");
- executeButton.helpTip = "Consolidate or delete duplicate items found in the search";
+    var executeButton = panel.add("button", undefined, "Execute");
+    executeButton.helpTip = "Consolidate or remove the detected duplicate items";
 
     var selectedFolder;
     var duplicatesCount = 0;
@@ -1392,13 +1596,13 @@ function buildRemoveUI(panel) {
 
                     var nameKey = "";
                     if (nameCheckBox.value || ignoreNumbersCheckBox.value) {
-                        nameKey = ignoreNumbersCheckBox.value ? item.name.replace(/\d+/g, "") : item.name;
+                        nameKey = ignoreNumbersCheckBox.value ? item.name.replace(/[\d_xX\*\＊\-]/g, "") : item.name;
                     }
 
                     var sizeKey = sizeCheckBox.value && item.hasOwnProperty("width") && item.hasOwnProperty("height")
                         ? item.width + "x" + item.height : "";
 
-                    var combinedKey = nameKey + (nameKey && sizeKey ? "_" : "") + sizeKey + (typeKey ? "_" + typeKey : "");
+                    var combinedKey = nameKey + (nameKey && sizeKey ? "_" : "") + sizeKey;
 
                     if (combinedKey && duplicates[combinedKey]) {
                         duplicates[combinedKey].push(item);
@@ -1411,8 +1615,7 @@ function buildRemoveUI(panel) {
         }
 
         processFolder(folder);
-        resultText.text = "Duplication: " + duplicatesCount;
-        folderPath.text = folder.name;
+        resultText.text = "Duplicates Found: " + duplicatesCount;
     }
 
     function executeConsolidation() {
@@ -1445,8 +1648,8 @@ function buildRemoveUI(panel) {
         }
 
         app.endUndoGroup();
-        alert("Duplicate items have been sorted out.");
-        resultText.text = "Duplication: 0";
+        alert("Consolidation complete.");
+        resultText.text = "Duplicates Found: 0";
     }
 
     checkButton.onClick = function () {
@@ -1455,7 +1658,7 @@ function buildRemoveUI(panel) {
             folderPath.text = selectedFolder.name;
             checkDuplicates(selectedFolder);
         } else {
-            alert("Select a folder in the project panel.");
+            alert("Please select a folder in the Project panel.");
         }
     };
 
@@ -1463,15 +1666,10 @@ function buildRemoveUI(panel) {
         if (selectedFolder) {
             executeConsolidation();
         } else {
-            alert("First check for duplicates by clicking on the “Check” button.");
+            alert("Please click 'Scan' first to find duplicates.");
         }
     };
-
-    // Insert a line separator
-    // var separator6 = panel.add("statictext", undefined, "----------------------------------------------------------------");
-
 }
-
     // ◆◆ShakeTAB◆◆
     // ★★★★★Shake★★★★★
 function buildShakeUI(panel) {
@@ -1580,101 +1778,13 @@ function buildShakeUI(panel) {
                 layer.transform.position.setValueAtTime(comp.time + duration / comp.frameRate, initialPos);
             }
 
-        }
-
-      // ★★★★★rounding down★★★★★
-// ★★★★★ Floor All Values (Integer) ★★★★★
-
-    var floorPanel = panel.add("panel", undefined, "Organizing the Numbers");
-    floorPanel.alignment = ["fill", "top"];
-    
-    var floorButton = floorPanel.add("button", undefined, "Truncate");
-    floorButton.helpTip = "Convert all property values (transforms, effects, etc.) within the selected layer to integers.";
-    floorButton.size = [200, 40];
-
-    floorButton.onClick = function() {
-        var comp = app.project.activeItem;
-        if (!(comp instanceof CompItem)) {
-            alert("Please select a composition.");
-            return;
-        }
-
-        var layers = comp.selectedLayers;
-        if (layers.length === 0) {
-            alert("Please select a layer.");
-            return;
-        }
-
-        app.beginUndoGroup("Truncation of decimal points");
-
-        for (var i = 0; i < layers.length; i++) {
-            processProperties(layers[i]);
-        }
-
-        app.endUndoGroup();
-        // alert("Processing is complete.");
-    };
-
-    /**
-     * A function that recursively traverses all properties and truncates numerical values
-     */
-    function processProperties(propParent) {
-        for (var i = 1; i <= propParent.numProperties; i++) {
-            var prop = propParent.property(i);
-
-            if (prop.propertyType === PropertyType.PROPERTY) {
-                // Check if it is a writable numeric property
-                if (prop.hasMinMax || prop.propertyValueType !== PropertyValueType.NO_VALUE) {
-                    try {
-                        floorPropertyValue(prop);
-                    } catch (e) {
-                        // Avoiding errors such as read-only
-                    }
-                }
-            } else if (prop.propertyType === PropertyType.INDEXED_GROUP || prop.propertyType === PropertyType.NAMED_GROUP) {
-                processProperties(prop);
-            }
-        }
-    }
-
-    /**
-     * Process for truncating property values
-     */
-    function floorPropertyValue(prop) {
-        // Process all keys if keyframes exist
-        if (prop.numKeys > 0) {
-            for (var k = 1; k <= prop.numKeys; k++) {
-                var val = prop.keyValue(k);
-                prop.setValueAtKey(k, getFlooredValue(val));
-            }
-        } else {
-            // If the key does not exist, process the current value
-            var val = prop.value;
-            prop.setValue(getFlooredValue(val));
-        }
-    }
-
-    /**
-     * Auxiliary function for truncating numbers or arrays
-     */
-    function getFlooredValue(val) {
-        if (typeof val === "number") {
-            return Math.floor(val);
-        } else if (val instanceof Array) {
-            var newArray = [];
-            for (var i = 0; i < val.length; i++) {
-                // If the array contains numeric values, truncate them; otherwise, leave them as is.
-                newArray.push(typeof val[i] === "number" ? Math.floor(val[i]) : val[i]);
-            }
-            return newArray;
-        }
-        return val;
-    }
+            app.endUndoGroup();
+        };
 
         // ★★★★★Delete★★★★★
 
-	// Delete Function Section (Simply a button only)
-    var deletePanel = panel.add("panel", undefined, "Batch Initialization");
+// Delete Function Section (Simply a button)
+    var deletePanel = panel.add("panel", undefined, "Initialization");
     deletePanel.alignment = ["fill", "top"];
     
     var deleteAllButton = deletePanel.add("button", undefined, "Delete all keys and information");
@@ -1700,16 +1810,16 @@ function buildShakeUI(panel) {
             var layer = layers[i];
 
             // 1. Remove all effects
-            // var effectsGroup = layer.property("ADBE Effect Parade");
-            // while (effectsGroup && effectsGroup.numProperties > 0) {
-            //    effectsGroup.property(1).remove();
-            // }
+            var effectsGroup = layer.property("ADBE Effect Parade");
+            while (effectsGroup && effectsGroup.numProperties > 0) {
+                effectsGroup.property(1).remove();
+            }
 
             // 2. Remove all masks
-            //var maskGroup = layer.property("ADBE Mask Parade");
-            //while (maskGroup && maskGroup.numProperties > 0) {
-            //    maskGroup.property(1).remove();
-            //}
+            var maskGroup = layer.property("ADBE Mask Parade");
+            while (maskGroup && maskGroup.numProperties > 0) {
+                maskGroup.property(1).remove();
+            }
 
             // 3. Disable Time Remap
             if (layer.canEnableTimeRemap && layer.timeRemapEnabled) {
@@ -1717,10 +1827,12 @@ function buildShakeUI(panel) {
             }
 
             // 4. Delete all property keyframes and expressions (recursively)
-            // This means that not only the transform, but also the contents of the shape and the contents of the text are affected.
+            // This targets not only transforms but also the contents of shapes and text
             removeAllKeysAndExpressions(layer);
         }
-    }
+
+        app.endUndoGroup();
+    };
 
     /**
      * Function to delve into property groups and remove all keys and expressions
@@ -1745,9 +1857,11 @@ function buildShakeUI(panel) {
                 removeAllKeysAndExpressions(prop);
             }
         }
-    }
-}
+            app.endUndoGroup();
+    };
+
         // ★★★★★end★★★★★
+}
 
     buildUI(myPanel);
 
