@@ -1,8 +1,7 @@
-/* CopySelectedFootageFiles_v34.jsx
-    - 修正点：
-        1) 「コピー後リンク自動更新」チェックボックスを追加。
-        2) チェックON時、「リンク更新」ボタンを無効化（グレーアウト）。
-        3) コピー実行後、チェックがONなら自動的にリリンク処理を走らせるよう統合。
+/* CopySelectedFootageFiles_v35.jsx
+    - 修正点：レイアウトの最適化
+        1) 上部操作パネル、ソートボタンを上部に固定。
+        2) リスト表示・階層表示がウィンドウのリサイズに合わせて縦に最大化されるよう修正。
 */
 
 (function (thisObj) {
@@ -12,7 +11,6 @@
     function isSequence(it) {
         if (!it.mainSource) return false;
         if (it.mainSource.isSequence === true) return true;
-        // 保存された情報に基づき、[ ] を含むファイル名も連番（フォルダ扱い）として判定
         if (it.name.indexOf("[") !== -1 && it.name.indexOf("]") !== -1) return true;
         return false;
     }
@@ -50,14 +48,19 @@
     }
 
     function buildUI(thisObj) {
-        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Copy & Relink v34", undefined, {resizeable:true});
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Copy & Relink v35", undefined, {resizeable:true});
         win.orientation = "column";
         win.alignChildren = ["fill","fill"];
         win.margins = 10;
+        win.spacing = 5;
 
+        // --- 上部固定エリア ---
         var top = win.add("group");
         top.orientation = "column";
         top.alignChildren = ["fill","top"];
+        top.spacing = 5;
+        // ウィンドウを広げてもこのグループが縦に伸びないようにする
+        top.alignment = ["fill", "top"]; 
 
         var pDest = top.add("panel", undefined, "コピー先フォルダ");
         pDest.orientation = "row";
@@ -68,10 +71,8 @@
         var cbRename = top.add("checkbox", undefined, "同名フォルダ/ファイルはリネーム（上書き防止）");
         cbRename.value = false;
 
-        // --- 追加セクション ---
         var cbAutoRelink = top.add("checkbox", undefined, "コピー後リンク自動更新");
-        cbAutoRelink.value = true; // デフォルトでON
-        // -----------------------
+        cbAutoRelink.value = true;
 
         btnBrowse.onClick = function() {
             var f = Folder.selectDialog();
@@ -83,21 +84,24 @@
         var btnCopy = gBtns.add("button", undefined, "選択をコピー");
         var btnRelink = gBtns.add("button", undefined, "リンク更新");
 
-        // --- 自動更新チェックによるボタン制御 ---
         btnRelink.enabled = !cbAutoRelink.value;
         cbAutoRelink.onClick = function() {
             btnRelink.enabled = !this.value;
         };
-        // ------------------------------------
 
+        // --- メインエリア（ここが伸びる） ---
         var tbs = win.add("tabbedpanel");
-        tbs.alignment = ["fill","fill"];
+        tbs.alignment = ["fill","fill"]; // 上下左右に広がる設定
 
+        // リスト表示タブ
         var tList = tbs.add("tab", undefined, "リスト表示");
         tList.orientation = "column";
         tList.alignChildren = ["fill", "fill"];
+        tList.spacing = 5;
 
+        // ソートボタンもリスト表示タブの中の上部に配置
         var sortGroup = tList.add("group");
+        sortGroup.alignment = ["fill", "top"];
         var bSortAE = sortGroup.add("button", undefined, "AE順");
         var bSortType = sortGroup.add("button", undefined, "Type順");
         var bSortName = sortGroup.add("button", undefined, "名前順");
@@ -108,15 +112,18 @@
             columnTitles: ["Type", "Name", "Path"],
             columnWidths: [60, 200, 400]
         });
-        lb.alignment = ["fill","fill"];
-        lb.preferredSize.height = 400;
+        lb.alignment = ["fill","fill"]; // リストボックスを最大化
 
+        // 階層表示タブ
         var tTree = tbs.add("tab", undefined, "階層表示");
+        tTree.orientation = "column";
+        tTree.alignChildren = ["fill", "fill"];
         var tv = tTree.add("treeview");
         tv.alignment = ["fill","fill"];
 
         var masterItems = [];
 
+        // --- 以下ロジック部分は変更なし ---
         function refresh() {
             if (!app.project) return;
             masterItems = [];
@@ -201,7 +208,6 @@
             return selected;
         }
 
-        // --- 再リンク処理を関数化 ---
         function executeRelink(data, destPath) {
             var dest = new Folder(destPath);
             var c = 0;
@@ -254,14 +260,11 @@
             }
 
             var msg = "コピー完了: " + count + "件";
-            
-            // 自動更新がONならリリンクを実行
             if (cbAutoRelink.value) {
                 var relinkCount = executeRelink(data, etDest.text);
                 msg += "\n自動再リンク: " + relinkCount + "件完了";
                 refresh();
             }
-            
             alert(msg);
         };
 
