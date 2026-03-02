@@ -824,6 +824,37 @@ function buildCombined1UI(panel) {
         assignCommentButton.active = false; // ボタンのアクティブ状態を解除
     };
 
+function convertCommentsToTextAndClearNames() {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        var selectedLayers = comp.selectedLayers;
+
+        if (selectedLayers.length > 0) {
+            app.beginUndoGroup("Convert Comments to Text and Clear Layer Names");
+
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer instanceof TextLayer) {
+                    var commentText = layer.comment;
+
+                    if (commentText != "") {
+                        layer.property("Source Text").setValue(commentText);
+                    }
+                    // レイヤー名をクリア
+                    layer.name = "";
+                }
+            }
+
+            app.endUndoGroup();
+        } else {
+            alert("テキストレイヤーを選択してください。");
+        }
+    } else {
+        alert("コンポジションが選択されていません。");
+    }
+}
+
+
     // ★★★★★テキストの長さに基づいてレイヤーの時間を調整する★★★★★
 
     var adjustTimeGroup = panel.add("group", undefined);
@@ -850,6 +881,36 @@ function buildCombined1UI(panel) {
         }
         adjustTimeButton.active = false; // ボタンのアクティブ状態を解除
     };
+
+function adjustLayerDuration(frameDuration) {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        var selectedLayers = comp.selectedLayers;
+
+        if (selectedLayers.length > 0 && frameDuration) {
+            app.beginUndoGroup("Adjust Layer Duration Based on Text Length");
+
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer instanceof TextLayer) {
+                    var text = layer.property("Source Text").value.text;
+
+                    var totalFrames = text.length * frameDuration;
+                    var durationInSeconds = totalFrames / comp.frameRate;
+
+                    // レイヤーの終了時間を調整
+                    layer.outPoint = layer.inPoint + durationInSeconds;
+                }
+            }
+
+            app.endUndoGroup();
+        } else {
+            alert("テキストレイヤーを選択してください。");
+        }
+    } else {
+        alert("コンポジションが選択されていません。");
+    }
+}
 
 // ★★★★★レイヤーの長さに合わせてコンポ時間を調整（選択優先）★★★★★
 

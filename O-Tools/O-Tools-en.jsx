@@ -820,6 +820,35 @@ function buildCombined1UI(panel) {
         assignCommentButton.active = false; // Deactivate the button
     };
 
+function convertCommentsToTextAndClearNames() {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        var selectedLayers = comp.selectedLayers;
+
+        if (selectedLayers.length > 0) {
+            app.beginUndoGroup("Convert Comments to Text and Clear Layer Names");
+
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer instanceof TextLayer) {
+                    var commentText = layer.comment;
+
+                    if (commentText != "") {
+                        layer.property("Source Text").setValue(commentText);
+                    }
+                    // Clear layer name
+                    layer.name = "";
+                }
+            }
+
+            app.endUndoGroup();
+        } else {
+            alert("Please select one or more text layers.");
+        }
+    } else {
+        alert("No composition is selected.");
+    }
+}
 
     // ★★★★★Adjust the layer duration based on the length of the text★★★★★
 
@@ -847,6 +876,36 @@ function buildCombined1UI(panel) {
         }
         adjustTimeButton.active = false; // Deactivate the button
     };
+
+function adjustLayerDuration(frameDuration) {
+    var comp = app.project.activeItem;
+    if (comp != null && comp instanceof CompItem) {
+        var selectedLayers = comp.selectedLayers;
+
+        if (selectedLayers.length > 0 && frameDuration) {
+            app.beginUndoGroup("Adjust Layer Duration Based on Text Length");
+
+            for (var i = 0; i < selectedLayers.length; i++) {
+                var layer = selectedLayers[i];
+                if (layer instanceof TextLayer) {
+                    var text = layer.property("Source Text").value.text;
+
+                    var totalFrames = text.length * frameDuration;
+                    var durationInSeconds = totalFrames / comp.frameRate;
+
+                    // Adjust layer out point
+                    layer.outPoint = layer.inPoint + durationInSeconds;
+                }
+            }
+
+            app.endUndoGroup();
+        } else {
+            alert("Please select one or more text layers.");
+        }
+    } else {
+        alert("No composition is selected.");
+    }
+}
 
 // ★★★★★ Adjust Comp Duration Based on Layer Length (Selection Priority) ★★★★★
 
