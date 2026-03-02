@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8d by Digimonkey
+// O_Tools V1.5.8e by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -803,6 +803,7 @@ function buildCombined1UI(panel) {
         app.endUndoGroup();
     }
 
+
     // ★★★★★Convert comments to text and clear the layer names★★★★★
 
     var assignCommentGroup = panel.add("group", undefined);
@@ -813,11 +814,12 @@ function buildCombined1UI(panel) {
     assignCommentLabel.helpTip = "Converts layer comments to text";
 
     var assignCommentButton = assignCommentGroup.add("button", undefined, "Convert Comments to Text");
-    assignCommentButton.helpTip = "Convert comments on selected layers to text";
+    assignCommentButton.helpTip = "Convert comments on selected layers to text"";
     assignCommentButton.onClick = function () {
         convertCommentsToTextAndClearNames();
         assignCommentButton.active = false; // Deactivate the button
     };
+
 
     // ★★★★★Adjust the layer duration based on the length of the text★★★★★
 
