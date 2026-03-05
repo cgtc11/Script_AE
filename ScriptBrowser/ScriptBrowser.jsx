@@ -14,16 +14,17 @@
         // --- ツールバー ---
         var toolBar = win.add("group");
         toolBar.orientation = "row";
-        toolBar.alignment = ["fill", "top"]; // 横いっぱいに広げる
+        toolBar.alignment = ["fill", "top"];
         var btnRefresh = toolBar.add("button", undefined, "再読み込み");
         var btnSetRoot = toolBar.add("button", undefined, "ルート変更");
+        // 追加：フォルダを開くボタン
+        var btnOpenFolder = toolBar.add("button", undefined, "フォルダを開く");
 
         // --- ツリービュー ---
-        // ここを修正：preferredSizeを削除し、親要素に合わせて広がるように設定
         var tree = win.add("treeview", undefined, "");
         tree.alignment = ["fill", "fill"]; 
 
-        // --- フォルダ取得・ソート関数 (変更なし) ---
+        // --- 関数群 ---
         function getSortedFiles(folder) {
             var items = folder.getFiles();
             var folders = [];
@@ -48,6 +49,7 @@
                 var itemName = File.decode(item.name);
                 if (item instanceof Folder) {
                     var node = parentNode.add("node", "📁 " + itemName);
+                    node.folder = item; // フォルダオブジェクトを保持させる
                     addFolder(item, node);
                 } else {
                     var fileNode = parentNode.add("item", "📄 " + itemName);
@@ -65,11 +67,34 @@
             }
         }
 
-        // イベント処理
+        // --- イベント処理 ---
         btnRefresh.onClick = refreshTree;
+        
         btnSetRoot.onClick = function () {
             var newPath = Folder.selectDialog("フォルダを選択");
             if (newPath) { SCRIPTS_ROOT = newPath; refreshTree(); }
+        };
+
+        // 追加：フォルダを開くボタンの動作
+        btnOpenFolder.onClick = function() {
+            var targetFolder = SCRIPTS_ROOT; // デフォルトはルート
+            var sel = tree.selection;
+
+            if (sel) {
+                if (sel.folder) {
+                    // フォルダノードが選択されている場合
+                    targetFolder = sel.folder;
+                } else if (sel.file) {
+                    // ファイルが選択されている場合、その親フォルダ
+                    targetFolder = sel.file.parent;
+                }
+            }
+
+            if (targetFolder.exists) {
+                targetFolder.execute(); // OS標準のファイラーで開く
+            } else {
+                alert("フォルダが存在しません。");
+            }
         };
 
         tree.onDoubleClick = function () {
@@ -77,7 +102,6 @@
             if (sel && sel.file) { $.evalFile(sel.file); }
         };
 
-        // --- 追加: リサイズ対応 ---
         win.onResizing = win.onResize = function() {
             this.layout.resize();
         };
