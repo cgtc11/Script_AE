@@ -38,6 +38,11 @@
 　</h2>
   <p><strong>目的:</strong> よく使う AE 作業をまとめた多機能パネル。名称編集、タイムリマップ、整列、削除、シェイプ操作など</p>
 
+  <h2 id="ScriptBrowser">
+  <a href="https://github.com/cgtc11/Script_AE/tree/main/ScriptBrowser">ScriptBrowser</a>
+　</h2>
+  <p><strong>目的:</strong> スクリプト格納場所をフォルダ構造持った状態で表示して選択できるようにする</p>
+
   <h2 id="SelectItemsInFolder">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/SelectItemsInFolder">SelectItemsInFolder</a>
 　</h2>
