@@ -1,5 +1,4 @@
 (function (thisObj) {
-    // 実行中のAEのScriptsフォルダを初期値として取得
     var SCRIPTS_ROOT = new Folder(Folder.startup.fullName + "/Scripts");
 
     function buildUI(thisObj) {
@@ -15,19 +14,20 @@
         // --- ツールバー ---
         var toolBar = win.add("group");
         toolBar.orientation = "row";
+        toolBar.alignment = ["fill", "top"]; // 横いっぱいに広げる
         var btnRefresh = toolBar.add("button", undefined, "再読み込み");
-        var btnSetRoot = toolBar.add("button", undefined, "ルート変更"); // ← 削除せず残しました
+        var btnSetRoot = toolBar.add("button", undefined, "ルート変更");
 
         // --- ツリービュー ---
+        // ここを修正：preferredSizeを削除し、親要素に合わせて広がるように設定
         var tree = win.add("treeview", undefined, "");
-        tree.preferredSize = [300, 600];
+        tree.alignment = ["fill", "fill"]; 
 
-        // --- 関数: フォルダ内容の取得とソート（フォルダを上、ファイルを下に） ---
+        // --- フォルダ取得・ソート関数 (変更なし) ---
         function getSortedFiles(folder) {
             var items = folder.getFiles();
             var folders = [];
             var files = [];
-
             for (var i = 0; i < items.length; i++) {
                 if (items[i] instanceof Folder) {
                     folders.push(items[i]);
@@ -35,28 +35,20 @@
                     files.push(items[i]);
                 }
             }
-
-            // 名前順にソート（日本語対応）
-            var sortFn = function(a, b) {
-                return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-            };
+            var sortFn = function(a, b) { return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); };
             folders.sort(sortFn);
             files.sort(sortFn);
-
             return folders.concat(files);
         }
 
-        // --- 関数: ツリーの構築 ---
         function addFolder(folder, parentNode) {
             var items = getSortedFiles(folder);
-
             for (var i = 0; i < items.length; i++) {
                 var item = items[i];
-                var itemName = File.decode(item.name); // 日本語デコード
-
+                var itemName = File.decode(item.name);
                 if (item instanceof Folder) {
                     var node = parentNode.add("node", "📁 " + itemName);
-                    addFolder(item, node); // 再帰的に中身も追加
+                    addFolder(item, node);
                 } else {
                     var fileNode = parentNode.add("item", "📄 " + itemName);
                     fileNode.file = item;
@@ -73,40 +65,31 @@
             }
         }
 
-        // --- イベント処理 ---
-        
-        // 再読み込み
+        // イベント処理
         btnRefresh.onClick = refreshTree;
-
-        // ルート変更（読み込む場所を変更）
         btnSetRoot.onClick = function () {
-            var newPath = Folder.selectDialog("スクリプトを読み込むルートフォルダを選択してください");
-            if (newPath) {
-                SCRIPTS_ROOT = newPath;
-                refreshTree();
-            }
+            var newPath = Folder.selectDialog("フォルダを選択");
+            if (newPath) { SCRIPTS_ROOT = newPath; refreshTree(); }
         };
 
-        // 実行（ダブルクリック）
         tree.onDoubleClick = function () {
             var sel = tree.selection;
-            if (sel && sel.file) {
-                $.evalFile(sel.file);
-            }
+            if (sel && sel.file) { $.evalFile(sel.file); }
         };
 
-        // 初回読み込み
-        refreshTree();
+        // --- 追加: リサイズ対応 ---
+        win.onResizing = win.onResize = function() {
+            this.layout.resize();
+        };
 
+        refreshTree();
         win.layout.layout(true);
         return win;
     }
 
     var myUI = buildUI(thisObj);
-
     if (myUI instanceof Window) {
         myUI.center();
         myUI.show();
     }
-
 })(this);
