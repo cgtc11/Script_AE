@@ -1,5 +1,30 @@
 (function (thisObj) {
-    var SCRIPTS_ROOT = new Folder(Folder.startup.fullName + "/Scripts");
+    // --- 設定ファイルのパス定義 ---
+    var PREF_FILE = new File(Folder.myDocuments.fullName + "/ScriptBrowser.txt");
+    
+    // 起動時に設定ファイルを読み込む。なければデフォルト
+    var SCRIPTS_ROOT = loadPref() || new Folder(Folder.startup.fullName + "/Scripts");
+
+    function savePref(folder) {
+        try {
+            PREF_FILE.open("w");
+            PREF_FILE.write(folder.fsName);
+            PREF_FILE.close();
+        } catch (e) {
+            // 保存失敗時はサイレントにスルー
+        }
+    }
+
+    function loadPref() {
+        if (PREF_FILE.exists) {
+            PREF_FILE.open("r");
+            var path = PREF_FILE.read();
+            PREF_FILE.close();
+            var f = new Folder(path);
+            return f.exists ? f : null;
+        }
+        return null;
+    }
 
     function buildUI(thisObj) {
         var win = (thisObj instanceof Panel)
@@ -17,7 +42,6 @@
         toolBar.alignment = ["fill", "top"];
         var btnRefresh = toolBar.add("button", undefined, "再読み込み");
         var btnSetRoot = toolBar.add("button", undefined, "ルート変更");
-        // 追加：フォルダを開くボタン
         var btnOpenFolder = toolBar.add("button", undefined, "フォルダを開く");
 
         // --- ツリービュー ---
@@ -49,7 +73,7 @@
                 var itemName = File.decode(item.name);
                 if (item instanceof Folder) {
                     var node = parentNode.add("node", "📁 " + itemName);
-                    node.folder = item; // フォルダオブジェクトを保持させる
+                    node.folder = item;
                     addFolder(item, node);
                 } else {
                     var fileNode = parentNode.add("item", "📄 " + itemName);
@@ -72,29 +96,21 @@
         
         btnSetRoot.onClick = function () {
             var newPath = Folder.selectDialog("フォルダを選択");
-            if (newPath) { SCRIPTS_ROOT = newPath; refreshTree(); }
+            if (newPath) { 
+                SCRIPTS_ROOT = newPath; 
+                savePref(newPath); // ルート変更時に保存
+                refreshTree(); 
+            }
         };
 
-        // 追加：フォルダを開くボタンの動作
         btnOpenFolder.onClick = function() {
-            var targetFolder = SCRIPTS_ROOT; // デフォルトはルート
+            var targetFolder = SCRIPTS_ROOT;
             var sel = tree.selection;
-
             if (sel) {
-                if (sel.folder) {
-                    // フォルダノードが選択されている場合
-                    targetFolder = sel.folder;
-                } else if (sel.file) {
-                    // ファイルが選択されている場合、その親フォルダ
-                    targetFolder = sel.file.parent;
-                }
+                if (sel.folder) targetFolder = sel.folder;
+                else if (sel.file) targetFolder = sel.file.parent;
             }
-
-            if (targetFolder.exists) {
-                targetFolder.execute(); // OS標準のファイラーで開く
-            } else {
-                alert("フォルダが存在しません。");
-            }
+            if (targetFolder.exists) targetFolder.execute();
         };
 
         tree.onDoubleClick = function () {
