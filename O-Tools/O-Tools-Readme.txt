@@ -1,5 +1,5 @@
 AfterEffects script.
-O_Tools_en_v1.5.8d
+O_Tools_en_v1.5.8f
 -------------------------------------
 □□□How to install□□□
 -------------------------------------
@@ -152,3 +152,4 @@ Useful for starting over
 Remove all expressions causing errors across the entire project
 
 ----------------------------------
+
