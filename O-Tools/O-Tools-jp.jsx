@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8e by Digimonkey
+// O_Tools V1.5.8f by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -1042,13 +1042,13 @@ function moveLayersToWorkArea() {
     var separator6 = panel.add("statictext", undefined, "----------------------------------------------");
 }
 
-    // ★★★★★ここ迄★★★★★
-// ◆◆TOOLTAB2◆◆
-
+// ★★★★★ここ迄★★★★★
+    // ◆◆     TOOLTAB2     ◆◆
+    // ★★★★★★★★★★★★★
 
 function buildCombined2UI(panel) {
 
-// ★★★★★選択されたレイヤーの名前をクリア（完全版）★★★★★
+// ★★★★★レイヤー・プロジェクト項目の名前を初期化（完全版）★★★★★
 
 var clearNamesGroup = panel.add("group", undefined);
 clearNamesGroup.orientation = "column";
@@ -1064,71 +1064,133 @@ convertToEnglishCheckBox.value = false;
 // 初期化ボタン
 var clearButton = clearNamesGroup.add("button", undefined, "初期化");
 clearButton.onClick = function () {
+    app.beginUndoGroup("Clear and Rename Items");
+
     var comp = app.project.activeItem;
-    if (comp != null && comp instanceof CompItem) {
-        app.beginUndoGroup("Clear and Rename Layers");
+    var selectedLayers = (comp != null && comp instanceof CompItem) ? comp.selectedLayers : [];
+    var selectedProjectItems = app.project.selection;
 
-        var selectedLayers = comp.selectedLayers;
+    // --- 補助関数：RGB値から色の名前を推測する ---
+    function getColorName(rgb) {
+        var r = rgb[0] * 255;
+        var g = rgb[1] * 255;
+        var b = rgb[2] * 255;
+
+        if (r > 230 && g > 230 && b > 230) return "ホワイト";
+        if (r < 25 && g < 25 && b < 25) return "ブラック";
+        if (r > 200 && g < 50 && b < 50) return "レッド";
+        if (r < 50 && g > 180 && b < 50) return "グリーン";
+        if (r < 50 && g < 50 && b > 200) return "ブルー";
+        if (r > 200 && g > 200 && b < 50) return "イエロー";
+        if (r > 200 && g < 50 && b > 200) return "マゼンタ";
+        if (r < 50 && g > 200 && b > 200) return "シアン";
+        if (r > 100 && r < 150 && g > 100 && g < 150 && b > 100 && b < 150) return "グレー";
         
-        // 重複を避けて「Cam01」「Cam02」などのユニークな名前を作る関数
-        function getUniqueName(baseName) {
-            var counter = 1;
-            var finalName = baseName + "01";
-            var exists = true;
-
-            while (exists) {
-                exists = false;
-                for (var j = 1; j <= comp.numLayers; j++) {
-                    if (comp.layer(j).name === finalName) {
-                        counter++;
-                        var numStr = (counter < 10 ? "0" : "") + counter;
-                        finalName = baseName + numStr;
-                        exists = true;
-                        break;
-                    }
-                }
-                if (counter > 99) break; // 安全装置
-            }
-            return finalName;
-        }
-
-        for (var i = 0; i < selectedLayers.length; i++) {
-            var layer = selectedLayers[i];
-
-            if (convertToEnglishCheckBox.value) {
-                // --- 英語化フラグONの場合 ---
-
-                // 1. カメラ判定
-                if (layer instanceof CameraLayer) {
-                    layer.name = getUniqueName("Cam");
-                } 
-                // 2. ライト判定
-                else if (layer instanceof LightLayer) {
-                    layer.name = getUniqueName("Lit");
-                } 
-                // 3. シェイプ判定
-                else if (layer.matchName === "ADBE Vector Layer") {
-                    layer.name = getUniqueName("Shape");
-                } 
-                // 4. ヌル判定（プロパティ、またはソース名に「ヌル」が含まれる場合をカバー）
-                else if (layer.nullLayer || (layer.source && layer.source.name.indexOf("ヌル") !== -1) || (layer.source && layer.source.name.indexOf("Null") !== -1)) {
-                    layer.name = getUniqueName("Null");
-                } 
-                // 5. その他（平面やフッテージなど）
-                else {
-                    layer.name = ""; // 空にするとソース名に戻る
-                }
-            } else {
-                // --- 英語化フラグOFFの場合 ---
-                layer.name = ""; // 名前をクリアして After Effects デフォルトの状態にする
-            }
-        }
-
-        app.endUndoGroup();
-    } else {
-        alert("コンポジションを選択してください");
+        return ""; 
     }
+
+    // --- 補助関数：末尾の数字とスペースを消す ---
+    function removeTrailingNumbers(str) {
+        return str.replace(/\s+\d+$/, "");
+    }
+
+    // --- 補助関数：ユニーク名作成 (Cam01, Cam02...) ---
+    function getUniqueName(baseName, targetComp) {
+        var counter = 1;
+        var finalName = baseName + "01";
+        var exists = true;
+        while (exists) {
+            exists = false;
+            for (var j = 1; j <= targetComp.numLayers; j++) {
+                if (targetComp.layer(j).name === finalName) {
+                    counter++;
+                    var numStr = (counter < 10 ? "0" : "") + counter;
+                    finalName = baseName + numStr;
+                    exists = true;
+                    break;
+                }
+            }
+            if (counter > 99) break;
+        }
+        return finalName;
+    }
+
+    // ======================================================
+    // 1. タイムライン上の選択レイヤーに対する処理（従来通り）
+    // ======================================================
+    for (var i = 0; i < selectedLayers.length; i++) {
+        var layer = selectedLayers[i];
+
+        if (convertToEnglishCheckBox.value) {
+            // --- 英語化フラグON ---
+            if (layer instanceof CameraLayer) {
+                layer.name = getUniqueName("Cam", comp);
+            } else if (layer instanceof LightLayer) {
+                layer.name = getUniqueName("Lit", comp);
+            } else if (layer.matchName === "ADBE Vector Layer") {
+                layer.name = getUniqueName("Shape", comp);
+            } else if (layer.nullLayer) {
+                layer.name = getUniqueName("Null", comp);
+            } else {
+                layer.name = ""; 
+            }
+        } else {
+            // --- 英語化フラグOFF（日本語デフォルト） ---
+            if (layer instanceof CameraLayer) {
+                layer.name = "カメラ"; 
+            } else if (layer instanceof LightLayer) {
+                layer.name = "ライト";
+            } else if (layer.matchName === "ADBE Vector Layer") {
+                layer.name = "シェイプレイヤー";
+            } else if (layer.nullLayer) {
+                layer.name = "Null";
+            } else if (layer.adjustmentLayer) {
+                layer.name = "調整レイヤー";
+            } else if (layer.source && layer.source.mainSource instanceof SolidSource) {
+                // 平面レイヤーはソース名の末尾の数字を取ってリセット
+                layer.name = removeTrailingNumbers(layer.source.name);
+            } else {
+                layer.name = ""; 
+            }
+        }
+    }
+
+    // ======================================================
+    // 2. プロジェクトパネルでの選択項目に対する処理（新ロジック）
+    // ======================================================
+    for (var k = 0; k < selectedProjectItems.length; k++) {
+        var item = selectedProjectItems[k];
+
+        if (item instanceof FootageItem && item.mainSource instanceof SolidSource) {
+            
+            // A. サイズが 100x100 且つ ピクセル比 1.0 なら Null と判定
+            if (item.width === 100 && item.height === 100 && item.pixelAspect === 1.0) {
+                item.name = "Null";
+            }
+            // B. 調整レイヤーかどうか（名前に「調整レイヤー」が含まれる場合）
+            else if (item.name.indexOf("調整レイヤー") !== -1) {
+                item.name = "調整レイヤー";
+            } 
+            // C. その他のヌル（名前に「ヌル」が含まれる場合）
+            else if (item.name.indexOf("ヌル") !== -1 || item.name.indexOf("Null") !== -1) {
+                item.name = "Null";
+            }
+            // D. 通常の平面（色を判定して「色の名前＋平面」にリネーム）
+            else {
+                var solidColor = item.mainSource.color;
+                var cName = getColorName(solidColor);
+                if (cName !== "") {
+                    item.name = cName + " 平面";
+                } else {
+                    item.name = "平面";
+                }
+            }
+        }
+    }
+
+    app.endUndoGroup();
 };
+
 
     // ★★★★★選択したアイテムの名前にサイズ情報を追加・更新★★★★★
     var sizeUpdateGroup = panel.add("group", undefined);

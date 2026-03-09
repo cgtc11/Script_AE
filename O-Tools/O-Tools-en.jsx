@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8e by Digimonkey
+// O_Tools V1.5.8f by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -1020,74 +1020,154 @@ function adjustLayerDuration(frameDuration) {
     var separator6 = panel.add("statictext", undefined, "----------------------------------------------");
 }
 
-    // ★★★★★End Here★★★★★
-// ◆◆TOOLTAB2◆◆
-
+    // ★★★★★END OF PREVIOUS SECTION ★★★★★
+    // ◆◆           TOOLTAB2                 ◆◆
+    // ★★★★★★★★★★★★★★★★★★★★★★
 
 function buildCombined2UI(panel) {
 
-    // ★★★★★Clear the names of the selected layers★★★★★
+// ★★★★★ Initialize Layer & Project Item Names (Full English Version) ★★★★★
 
-    var clearNamesGroup = panel.add("group", undefined);
-    clearNamesGroup.orientation = "column";
-    clearNamesGroup.alignment = ["fill", "top"];
+var clearNamesGroup = panel.add("group", undefined);
+clearNamesGroup.orientation = "column";
+clearNamesGroup.alignment = ["fill", "top"];
 
-    // explanatory label
-    var clearNamesLabel = clearNamesGroup.add("statictext", undefined, "-----------Clear Layer Names-----------");
-    clearNamesLabel.helpTip = "Clears the name of the selected layer";
+// Description Label
+var clearNamesLabel = clearNamesGroup.add("statictext", undefined, "------------- Initialize Names -------------");
 
-    // Add checkbox
-    var convertToEnglishCheckBox = clearNamesGroup.add("checkbox", undefined, "Camera, Light, Shape, Null, is English");
-    convertToEnglishCheckBox.value = false; // Uncheck by default
+// Checkbox
+var convertToEnglishCheckBox = clearNamesGroup.add("checkbox", undefined, "English naming for Cam, Lit, Shape, Null");
+convertToEnglishCheckBox.value = false;
 
-    // initialize button
-    var clearButton = clearNamesGroup.add("button", undefined, "Clear Layer Names");
-    clearButton.helpTip = "Clear name. Camera, lights, shapes convert to English.";
-    clearButton.onClick = function () {
-        var comp = app.project.activeItem;
-        if (comp != null && comp instanceof CompItem) {
-            app.beginUndoGroup("Clear Layer Names");
+// Initialize Button
+var clearButton = clearNamesGroup.add("button", undefined, "Initialize");
+clearButton.onClick = function () {
+    app.beginUndoGroup("Clear and Rename Items");
 
-            var selectedLayers = comp.selectedLayers;
-            var camCount = 0;
-            var litCount = 0;
-            var shapeCount = 0;
-            var nullCount = 0;
+    var comp = app.project.activeItem;
+    var selectedLayers = (comp != null && comp instanceof CompItem) ? comp.selectedLayers : [];
+    var selectedProjectItems = app.project.selection;
 
-            for (var i = 0; i < selectedLayers.length; i++) {
-                var layer = selectedLayers[i];
+    // --- Helper: Guess color name from RGB values ---
+    function getColorName(rgb) {
+        var r = rgb[0] * 255;
+        var g = rgb[1] * 255;
+        var b = rgb[2] * 255;
 
-                if (convertToEnglishCheckBox.value) {
-                    // Converted to English if check box is on
-                    if (layer instanceof CameraLayer) {
-                        camCount++;
-                        layer.name = "Cam" + (camCount < 10 ? "0" : "") + camCount;
-                    } else if (layer instanceof LightLayer) {
-                        litCount++;
-                        layer.name = "Lit" + (litCount < 10 ? "0" : "") + litCount;
-                    } else if (layer.matchName === "ADBE Vector Layer") { // shape player
-                        shapeCount++;
-                        layer.name = "Shape" + (shapeCount < 10 ? "0" : "") + shapeCount;
-                    } else if (layer.nullLayer) { // For Null Layer
-                        nullCount++;
-                        layer.name = "Null" + (nullCount < 10 ? "0" : "") + nullCount;
-                    } else {
-                        layer.name = ""; // Other layers should have empty names
-                    }
-                } else {
-                    // If the checkbox is unchecked, only null and normal layers are initialized
-                    if (layer.nullLayer || !(layer instanceof CameraLayer || layer instanceof LightLayer || layer.matchName === "ADBE Vector Layer")) {
-                        layer.name = ""; // Initialize name to empty
-                    }
+        if (r > 230 && g > 230 && b > 230) return "White";
+        if (r < 25 && g < 25 && b < 25) return "Black";
+        if (r > 200 && g < 50 && b < 50) return "Red";
+        if (r < 50 && g > 180 && b < 50) return "Green";
+        if (r < 50 && g < 50 && b > 200) return "Blue";
+        if (r > 200 && g > 200 && b < 50) return "Yellow";
+        if (r > 200 && g < 50 && b > 200) return "Magenta";
+        if (r < 50 && g > 200 && b > 200) return "Cyan";
+        if (r > 100 && r < 150 && g > 100 && g < 150 && b > 100 && b < 150) return "Gray";
+        
+        return ""; 
+    }
+
+    // --- Helper: Remove trailing numbers and spaces ---
+    function removeTrailingNumbers(str) {
+        return str.replace(/\s+\d+$/, "");
+    }
+
+    // --- Helper: Create Unique Names (Cam01, Cam02...) ---
+    function getUniqueName(baseName, targetComp) {
+        var counter = 1;
+        var finalName = baseName + "01";
+        var exists = true;
+        while (exists) {
+            exists = false;
+            for (var j = 1; j <= targetComp.numLayers; j++) {
+                if (targetComp.layer(j).name === finalName) {
+                    counter++;
+                    var numStr = (counter < 10 ? "0" : "") + counter;
+                    finalName = baseName + numStr;
+                    exists = true;
+                    break;
                 }
             }
-
-            app.endUndoGroup();
-        } else {
-            alert("Please select a composition");
+            if (counter > 99) break;
         }
-        clearButton.active = false; // Deactivates the active state of the button
-    };
+        return finalName;
+    }
+
+    // ======================================================
+    // 1. Process Selected Layers in Timeline
+    // ======================================================
+    for (var i = 0; i < selectedLayers.length; i++) {
+        var layer = selectedLayers[i];
+
+        if (convertToEnglishCheckBox.value) {
+            // --- English Forced Flag ON ---
+            if (layer instanceof CameraLayer) {
+                layer.name = getUniqueName("Cam", comp);
+            } else if (layer instanceof LightLayer) {
+                layer.name = getUniqueName("Lit", comp);
+            } else if (layer.matchName === "ADBE Vector Layer") {
+                layer.name = getUniqueName("Shape", comp);
+            } else if (layer.nullLayer) {
+                layer.name = getUniqueName("Null", comp);
+            } else {
+                layer.name = ""; 
+            }
+        } else {
+            // --- Default Mode ---
+            if (layer instanceof CameraLayer) {
+                layer.name = "Camera"; 
+            } else if (layer instanceof LightLayer) {
+                layer.name = "Light";
+            } else if (layer.matchName === "ADBE Vector Layer") {
+                layer.name = "Shape Layer";
+            } else if (layer.nullLayer) {
+                layer.name = "Null";
+            } else if (layer.adjustmentLayer) {
+                layer.name = "Adjustment Layer";
+            } else if (layer.source && layer.source.mainSource instanceof SolidSource) {
+                // Reset to source name without trailing numbers
+                layer.name = removeTrailingNumbers(layer.source.name);
+            } else {
+                layer.name = ""; 
+            }
+        }
+    }
+
+    // ======================================================
+    // 2. Process Selected Items in Project Panel
+    // ======================================================
+    for (var k = 0; k < selectedProjectItems.length; k++) {
+        var item = selectedProjectItems[k];
+
+        if (item instanceof FootageItem && item.mainSource instanceof SolidSource) {
+            
+            // A. If 100x100 and Pixel Aspect 1.0, treat as Null
+            if (item.width === 100 && item.height === 100 && item.pixelAspect === 1.0) {
+                item.name = "Null";
+            }
+            // B. Adjustment Layer (Check for English/Japanese keywords)
+            else if (item.name.indexOf("Adjustment Layer") !== -1 || item.name.indexOf("調整レイヤー") !== -1) {
+                item.name = "Adjustment Layer";
+            } 
+            // C. Other Nulls (Check for English/Japanese keywords)
+            else if (item.name.indexOf("Null") !== -1 || item.name.indexOf("ヌル") !== -1) {
+                item.name = "Null";
+            }
+            // D. Standard Solids (Guess name from color)
+            else {
+                var solidColor = item.mainSource.color;
+                var cName = getColorName(solidColor);
+                if (cName !== "") {
+                    item.name = cName + " Solid";
+                } else {
+                    item.name = "Solid";
+                }
+            }
+        }
+    }
+
+    app.endUndoGroup();
+};
 
 // ★★★★★ Add or Update Size Info to Selected Item Names ★★★★★
 var sizeUpdateGroup = panel.add("group", undefined);
