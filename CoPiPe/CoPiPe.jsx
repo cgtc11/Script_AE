@@ -1,15 +1,13 @@
-// CoPiPe.jsx v1.0c by DigiMonkey
+// CoPiPe.jsx v1.1c by DigiMonkey (Modified)
 // Mode: Comp / Layer を選択
-// Copy : 依存縮小 → Desktop/CoPiPe.aepx 保存 → Undoで復帰
+// Copy : 依存縮小 → Desktop/CoPiPe.aepx 保存 → Undoで復帰 → 元のファイル名に復帰
 // Past : CoPiPe.aepx 読込 → 直下フォルダ名を「CoPiPe」に変更
-//        （Layerは __CoPiPe__ から順序維持で貼付）→ チェックONならAEPX削除
-// 無ダイアログ／LayerのCopy/Past後にビューを確実に元へ復帰
 
 (function(){
     var DESKTOP   = Folder.desktop.fsName.replace(/\\/g,"/");
     var AEPX_PATH = DESKTOP + "/CoPiPe.aepx";
     var TMP_COMP  = "__CoPiPe__";
-    var _deleteAfterPast = true; // UIチェックと連動
+    var _deleteAfterPast = true;
 
     // -------- 共通 --------
     function ensureActiveComp(){
@@ -26,7 +24,7 @@
         var io = new ImportOptions(file);
         if (!io.canImportAs(ImportAsType.PROJECT)) return null;
         io.importAs = ImportAsType.PROJECT;
-        return app.project.importFile(io); // FolderItem
+        return app.project.importFile(io);
     }
     function findCompDeep(it, name){
         if (!it) return null;
@@ -42,14 +40,14 @@
             try{
                 s.copyToComp(dstComp);
                 var newly = dstComp.layer(1);
-                if (newly) newly.moveToEnd(); // 元の順序を維持
+                if (newly) newly.moveToEnd();
             }catch(e){}
         }
     }
     function saveAEPX(){
         var f = new File(AEPX_PATH);
         try{ if (f.exists) f.remove(); }catch(e){}
-        app.project.save(f); // .aepx
+        app.project.save(f); // ここで一旦 CoPiPe.aepx になる
     }
     function undoOnce(){
         try{ var id = app.findMenuCommandId("Undo"); if (id){ app.executeCommand(id); return; } }catch(e){}
@@ -92,7 +90,7 @@
         }
     }
 
-    // -------- 依存解析による厳密縮小 --------
+    // -------- 依存解析 --------
     function collectDepsFromComp(rootComp, keep){
         var q=[rootComp];
         while(q.length){
@@ -138,13 +136,22 @@
     function copyComp(){
         var comps = selectedComps();
         if (comps.length===0) return;
+
+        var originalFile = app.project.file; // ★現在のファイルパスを記憶
+
         app.beginUndoGroup("CoPiPe Comp Copy");
         try{
             var keep = buildKeepSetFromComps(comps);
             strictReduceKeepSet(keep);
         } finally { app.endUndoGroup(); }
-        saveAEPX();
-        undoOnce();
+
+        saveAEPX(); // Desktopに保存（この時、AE上の名前がCoPiPeになる）
+        undoOnce(); // 削除したアイテムを元に戻す
+
+        // ★元のファイル名に戻す
+        if (originalFile !== null) {
+            app.project.save(originalFile);
+        }
     }
     function pastComp(){
         var f = new File(AEPX_PATH);
@@ -156,14 +163,15 @@
         if (_deleteAfterPast){ try{ f.remove(); }catch(e){} }
     }
 
-    // -------- Layer: Copy / Past（AEPX方式）--------
+    // -------- Layer: Copy / Past --------
     function copyLayer(){
+        var originalFile = app.project.file; // ★現在のファイルパスを記憶
+
         withViewPreserved(function(){
             var comp = ensureActiveComp();
             var sel = comp.selectedLayers || [];
             if (!sel || sel.length===0) return;
 
-            // 既存TMPを掃除
             for (var i=1;i<=app.project.numItems;i++){
                 var it=app.project.item(i);
                 if (it instanceof CompItem && it.name===TMP_COMP){ try{ it.remove(); }catch(e){} }
@@ -171,21 +179,23 @@
 
             app.beginUndoGroup("CoPiPe Layer→TempComp");
             try{
-                // 一時コンポを作成し順序維持で複製
                 var tmp = app.project.items.addComp(TMP_COMP, comp.width, comp.height, comp.pixelAspect, comp.duration, comp.frameRate);
                 sel.sort(function(a,b){ return a.index - b.index; });
                 for (var j=0;j<sel.length;j++){
                     try{ sel[j].copyToComp(tmp); }catch(e){}
                 }
-                // 一時コンポ依存だけに厳密縮小
                 var keep = buildKeepSetFromComps([tmp]);
                 strictReduceKeepSet(keep);
             } finally { app.endUndoGroup(); }
 
-            // アクティブ復帰の明示
             try{ app.project.activeItem = comp; }catch(e){}
             saveAEPX();
             undoOnce();
+
+            // ★元のファイル名に戻す
+            if (originalFile !== null) {
+                app.project.save(originalFile);
+            }
         });
     }
     function pastLayer(){
@@ -193,16 +203,11 @@
             var dst = ensureActiveComp();
             var f = new File(AEPX_PATH);
             if (!f.exists) return;
-
             var folder = importProjectAsFolder(f);
             if (!folder) return;
-
             try{ folder.name = "CoPiPe"; }catch(e){}
-
             var src = findCompDeep(folder, TMP_COMP);
             if (src) pasteOrderedFromComp(src, dst);
-
-            // アクティブ復帰の明示
             try{ app.project.activeItem = dst; }catch(e){}
             if (_deleteAfterPast){ try{ f.remove(); }catch(e){} }
         });
@@ -212,26 +217,20 @@
     function buildUI(thisObj){
         var panel = (thisObj instanceof Panel) ? thisObj : new Window("palette","CoPiPe AEPX (Comp/Layer)",undefined,{resizeable:true});
         panel.alignChildren=["fill","top"];
-
         var mode = panel.add("group"); mode.orientation="row";
         mode.add("statictext", undefined, "Mode:");
         var rbComp  = mode.add("radiobutton", undefined, "Comp");
         var rbLayer = mode.add("radiobutton", undefined, "Layer");
         rbComp.value = true;
-
-        // 削除チェック（要求どおりの表記）
         var delGrp = panel.add("group"); delGrp.orientation = "row";
         var chkDel = delGrp.add("checkbox", undefined, "Dell CoPiPe.aepx");
-        chkDel.value = true; // 初期ON
+        chkDel.value = true;
         chkDel.onClick = function(){ _deleteAfterPast = !!chkDel.value; };
-
         var row = panel.add("group"); row.orientation="row";
         var btnCopy = row.add("button", undefined, "Copy");
         var btnPast = row.add("button", undefined, "Past");
-
         btnCopy.onClick = function(){ try{ if (rbComp.value) copyComp(); else copyLayer(); }catch(e){} };
         btnPast.onClick = function(){ try{ if (rbComp.value) pastComp(); else pastLayer(); }catch(e){} };
-
         panel.layout.layout(true);
         if (!(thisObj instanceof Panel)){ panel.center(); panel.show(); }
         return panel;
