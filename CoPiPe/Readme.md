@@ -20,21 +20,6 @@ Mode: Comp / Layer を選択。</br>
 Dell CoPiPe.aepx: チェックONでペースト後にAEPX削除。OFFなら残す。</br>
 Copy / Past: 上記動作を実行。</br>
 </br>
-■使い方■</br>
-コンポを移す</br>
-プロジェクトパネルで目的のコンポを選択。</br>
-Mode を Comp にして Copy。</br>
-転送先AEで同スクリプトを開き、Mode Comp → Past。</br>
-レイヤーを移す</br>
-タイムラインで貼りたいレイヤーを選択（複数可）。</br>
-Mode を Layer にして Copy。</br>
-転送先AEで貼り付け先コンポを開き、Mode Layer → Past。</br>
-</br>
-■依存の扱い■</br>
-プリコンポ、フッテージ、ソリッドを再帰的に収集。</br>
-不要アイテムはCopy中だけ除去し、Undoで元に戻す。</br>
-レイヤーは copyToComp で順序維持。</br>
-</br>
 ■注意点■</br>
 外部フッテージはパスが変わると再リンクが必要。</br>
 名前依存のエクスプレッションは、貼り付け先で名前が変わると手直しが必要な場合がある。</br>
