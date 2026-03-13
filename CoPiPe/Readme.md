@@ -1,18 +1,17 @@
 <img width="206" height="164" alt="copipe" src="https://github.com/user-attachments/assets/cd40701b-c91c-49c4-9000-117024de2f64" /></br>
 </br>
 ■CoPiPe.jsx v1.1c 説明■</br>
-選択中のコンポまたはレイヤーだけを依存関係ごとAEPXに一時保存し、
-別起動のAEプロジェクトへ安全に貼り付ける。</br>
+選択中のコンポまたはレイヤーを依存関係ごとAEPXに一時保存して</br>
+別のAEプロジェクトへ貼り付ける。</br>
 </br>
 ■仕組み■</br>
 Copy</br>
-対象を起点に依存アイテムを走査し、「必要なもの以外」を一時的に削除。</br>
+対象を起点に依存アイテムを調べ、「必要なもの以外」を一時的に削除。</br>
 Desktop/CoPiPe.aepx として保存（AEPX=XML形式）。</br>
 直前の状態へUndoで復帰。</br>
 </br>
 Past</br>
 CoPiPe.aepx をプロジェクトにインポート。</br>
-直下フォルダ名を「CoPiPe」に統一。</br>
 Layerモードは、AEPX内の __CoPiPe__ コンポから順序を保持して貼り付け。</br>
 「Dell CoPiPe.aepx」チェックONなら取り込み後にAEPXを削除。</br>
 </br>
