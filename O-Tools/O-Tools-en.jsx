@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8f by Digimonkey
+// O_Tools V1.5.8g by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -399,85 +399,128 @@ T1_Btn_offset.onClick = function () {
 };
 
 
-// ★Group for evenly spaced placement
+    // ★Group for equal spacing arrangement
+    var T1_Btn_spacing_Group = stopKeysGroup.add("group");
+    T1_Btn_spacing_Group.orientation = "row";
+    T1_Btn_spacing_Group.alignment = "center";
 
-var T1_Btn_spacing_Group = stopKeysGroup.add("group");
-T1_Btn_spacing_Group.orientation = "row";
-T1_Btn_spacing_Group.alignment = "center";
+    var T1_Btn_spacing = T1_Btn_spacing_Group.add("button", undefined, "Space Align");
+    T1_Btn_spacing.size = [80, 30];
+    var T1_Btn_spacing_Num = T1_Btn_spacing_Group.add("edittext", undefined, "1");
+    T1_Btn_spacing_Num.size = [30, 30];
+    T1_Btn_spacing.helpTip = "0 = full, 1 = place every other frame, 2 = place every 2 frames";
 
-var T1_Btn_spacing = T1_Btn_spacing_Group.add("button", undefined, "Interval");
-T1_Btn_spacing.size = [80, 30];
-var T1_Btn_spacing_Num = T1_Btn_spacing_Group.add("edittext", undefined, "1");
-T1_Btn_spacing_Num.size = [30, 30];
-T1_Btn_spacing.helpTip = "0 means full placement, 1 means skip every other frame, 2 means skip every two frames.";
+    T1_Btn_spacing.onClick = function () {
+        var comp = app.project.activeItem;
+        if (!(comp && comp instanceof CompItem)) {
+            alert("Please select a composition.");
+            return;
+        }
 
-// クリック時の処理
-T1_Btn_spacing.onClick = function () {
-    var comp = app.project.activeItem;
-    if (!(comp && comp instanceof CompItem)) {
-        alert("Please select a composition.");
-        return;
-    }
+        var fr = comp.frameRate;
+        var inputNum = parseFloat(T1_Btn_spacing_Num.text);
+        if (isNaN(inputNum)) {
+            alert("Please enter a number");
+            return;
+        }
 
-    var fr = comp.frameRate;
-    var inputNum = parseFloat(T1_Btn_spacing_Num.text);
-    if (isNaN(inputNum)) {
-        alert("Please enter a number.");
-        return;
-    }
+        var layers = comp.selectedLayers;
+        if (layers.length === 0) return;
 
-    app.beginUndoGroup("Arrange Keys Spacing");
+        app.beginUndoGroup("Arrange Keys Spacing");
 
-    var stepTime = (inputNum + 1) / fr; 
-    var currentTime = comp.time;
-    var layers = comp.selectedLayers;
+        var stepTime = (inputNum + 1) / fr;
+        var currentTime = comp.time;
 
-    for (var i = 0; i < layers.length; i++) {
-        var lyr = layers[i];
-        // Get all selected “Properties”
-        var selectedProps = lyr.selectedProperties;
-        
-        for (var p = 0; p < selectedProps.length; p++) {
-            var prop = selectedProps[p];
-            
-            // Verify that it is a property and that at least one keyframe is selected.
-            if (prop.propertyType === PropertyType.PROPERTY && prop.selectedKeys.length > 0) {
-                
-                var selectedKeyData = [];
-                var indicesToRemove = [];
+        var allProcessingData = [];
 
-                // 1. Save all information about the selected keys “while you still can”
-                // prop.selectedKeys returns an array of indices for the currently selected keys
-                for (var j = 0; j < prop.selectedKeys.length; j++) {
-                    var kIdx = prop.selectedKeys[j];
-                    selectedKeyData.push({
-                        val: prop.keyValue(kIdx),
-                        inInterp: prop.keyInInterpolationType(kIdx),
-                        outInterp: prop.keyOutInterpolationType(kIdx)
+        // --- STEP 1: Extract data ---
+        for (var i = 0; i < layers.length; i++) {
+            var lyr = layers[i];
+            var selectedProps = lyr.selectedProperties;
+
+            for (var p = 0; p < selectedProps.length; p++) {
+                var prop = selectedProps[p];
+
+                if (prop.propertyType === PropertyType.PROPERTY && prop.selectedKeys.length > 0) {
+                    var keyDataList = [];
+                    var indices = [];
+
+                    for (var j = 0; j < prop.selectedKeys.length; j++) {
+                        var kIdx = prop.selectedKeys[j];
+                        keyDataList.push({
+                            val: prop.keyValue(kIdx),
+                            inInterp: prop.keyInInterpolationType(kIdx),
+                            outInterp: prop.keyOutInterpolationType(kIdx)
+                        });
+                        indices.push(kIdx);
+                    }
+
+                    allProcessingData.push({
+                        layer: lyr,
+                        prop: prop,
+                        keys: keyDataList,
+                        oldIndices: indices
                     });
-                    indicesToRemove.push(kIdx);
-                }
-
-                // 2. ★Important: Delete the selected key “from the end”
-                // If you don't do this, the key will remain in its original position.
-                for (var r = indicesToRemove.length - 1; r >= 0; r--) {
-                    prop.removeKey(indicesToRemove[r]);
-                }
-
-                // 3. Reset from the indicator position
-                for (var m = 0; m < selectedKeyData.length; m++) {
-                    var newTime = currentTime + (m * stepTime);
-                    var newIdx = prop.addKey(newTime);
-                    
-                    prop.setValueAtKey(newIdx, selectedKeyData[m].val);
-                    prop.setInterpolationTypeAtKey(newIdx, selectedKeyData[m].inInterp, selectedKeyData[m].outInterp);
                 }
             }
         }
-    }
 
-    app.endUndoGroup();
-};
+        // --- STEP 2: Delete and reposition keys ---
+        for (var d = 0; d < allProcessingData.length; d++) {
+            var data = allProcessingData[d];
+            var targetProp = data.prop;
+            var targetLayer = data.layer;
+            var isTimeRemap = (targetProp.matchName === "ADBE Time Remapping");
+
+            // Time Remap specific processing
+            if (isTimeRemap) {
+                // If off, turn it on (AE automatically creates keys at the beginning and end)
+                if (!targetLayer.timeRemapEnabled) {
+                    targetLayer.timeRemapEnabled = true;
+                }
+                // ★Important: Place a dummy key far away so the key count never becomes 0
+                // About 1 minute after the composition duration
+                var dummyTime = comp.duration + 60;
+                targetProp.addKey(dummyTime);
+            }
+
+            // 1. Delete the previously selected old keys
+            for (var r = data.oldIndices.length - 1; r >= 0; r--) {
+                // Delete while checking that the property is still valid
+                if (targetProp.numKeys >= (isTimeRemap ? 2 : 1)) {
+                    targetProp.removeKey(data.oldIndices[r]);
+                }
+            }
+
+            // 2. For Time Remap, clean up the first and last keys AE created automatically (if any)
+            // Delete only the "automatic keys" that were not selected by the user
+            if (isTimeRemap) {
+                // Delete old keys not included in the data to be re-created, except the dummy key (last one)
+                for (var k = targetProp.numKeys; k >= 1; k--) {
+                    var t = targetProp.keyTime(k);
+                    if (t < comp.duration + 59) { // Keys other than the dummy
+                        targetProp.removeKey(k);
+                    }
+                }
+            }
+
+            // 3. Reposition keys from the saved data
+            for (var m = 0; m < data.keys.length; m++) {
+                var newTime = currentTime + (m * stepTime);
+                var newIdx = targetProp.addKey(newTime);
+                targetProp.setValueAtKey(newIdx, data.keys[m].val);
+                targetProp.setInterpolationTypeAtKey(newIdx, data.keys[m].inInterp, data.keys[m].outInterp);
+            }
+
+            // 4. Finally, delete the dummy key
+            if (isTimeRemap) {
+                targetProp.removeKey(targetProp.numKeys);
+            }
+        }
+
+        app.endUndoGroup();
+    };
 
 
     var stopKeysLabel = stopKeysGroup.add("statictext", undefined, "--------- For Time Remapping ---------");
@@ -814,7 +857,7 @@ function buildCombined1UI(panel) {
     assignCommentLabel.helpTip = "Converts layer comments to text";
 
     var assignCommentButton = assignCommentGroup.add("button", undefined, "Convert Comments to Text");
-    assignCommentButton.helpTip = "Convert comments on selected layers to text"";
+    assignCommentButton.helpTip = "Convert comments on selected layers to text";
     assignCommentButton.onClick = function () {
         convertCommentsToTextAndClearNames();
         assignCommentButton.active = false; // Deactivate the button

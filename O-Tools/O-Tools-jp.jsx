@@ -1,5 +1,5 @@
 //===========================================================================
-// O_Tools V1.5.8f by Digimonkey
+// O_Tools V1.5.8g by Digimonkey
 //===========================================================================
 
 var thisObj = this;
@@ -405,7 +405,6 @@ T1_Btn_offset.onClick = function () {
 };
 
 // ★等間隔配置用のグループ
-
 var T1_Btn_spacing_Group = stopKeysGroup.add("group");
 T1_Btn_spacing_Group.orientation = "row";
 T1_Btn_spacing_Group.alignment = "center";
@@ -416,7 +415,6 @@ var T1_Btn_spacing_Num = T1_Btn_spacing_Group.add("edittext", undefined, "1");
 T1_Btn_spacing_Num.size = [30, 30];
 T1_Btn_spacing.helpTip = "0ならフル、1なら1コマ飛ばし、2なら2コマ飛ばしで配置します";
 
-// クリック時の処理
 T1_Btn_spacing.onClick = function () {
     var comp = app.project.activeItem;
     if (!(comp && comp instanceof CompItem)) {
@@ -431,59 +429,103 @@ T1_Btn_spacing.onClick = function () {
         return;
     }
 
+    var layers = comp.selectedLayers;
+    if (layers.length === 0) return;
+
     app.beginUndoGroup("Arrange Keys Spacing");
 
-    var stepTime = (inputNum + 1) / fr; 
+    var stepTime = (inputNum + 1) / fr;
     var currentTime = comp.time;
-    var layers = comp.selectedLayers;
+    
+    var allProcessingData = [];
 
+    // --- STEP 1: データの抽出 ---
     for (var i = 0; i < layers.length; i++) {
         var lyr = layers[i];
-        // 選択されている「プロパティ」をすべて取得
         var selectedProps = lyr.selectedProperties;
-        
+
         for (var p = 0; p < selectedProps.length; p++) {
             var prop = selectedProps[p];
-            
-            // プロパティであり、かつキーフレームが1つ以上選択されているか確認
-            if (prop.propertyType === PropertyType.PROPERTY && prop.selectedKeys.length > 0) {
-                
-                var selectedKeyData = [];
-                var indicesToRemove = [];
 
-                // 1. 選択されているキーの情報を「今のうちに」すべて保存
-                // prop.selectedKeys は現在選択されているキーのインデックス配列を返します
+            if (prop.propertyType === PropertyType.PROPERTY && prop.selectedKeys.length > 0) {
+                var keyDataList = [];
+                var indices = [];
+
                 for (var j = 0; j < prop.selectedKeys.length; j++) {
                     var kIdx = prop.selectedKeys[j];
-                    selectedKeyData.push({
+                    keyDataList.push({
                         val: prop.keyValue(kIdx),
                         inInterp: prop.keyInInterpolationType(kIdx),
                         outInterp: prop.keyOutInterpolationType(kIdx)
                     });
-                    indicesToRemove.push(kIdx);
+                    indices.push(kIdx);
                 }
 
-                // 2. ★重要：選択されていたキーを「後ろから」削除
-                // これをやらないと、元の位置にキーが残ってしまいます
-                for (var r = indicesToRemove.length - 1; r >= 0; r--) {
-                    prop.removeKey(indicesToRemove[r]);
-                }
+                allProcessingData.push({
+                    layer: lyr,
+                    prop: prop,
+                    keys: keyDataList,
+                    oldIndices: indices
+                });
+            }
+        }
+    }
 
-                // 3. インジケータ位置から新しく打ち直す
-                for (var m = 0; m < selectedKeyData.length; m++) {
-                    var newTime = currentTime + (m * stepTime);
-                    var newIdx = prop.addKey(newTime);
-                    
-                    prop.setValueAtKey(newIdx, selectedKeyData[m].val);
-                    prop.setInterpolationTypeAtKey(newIdx, selectedKeyData[m].inInterp, selectedKeyData[m].outInterp);
+    // --- STEP 2: キーの削除と再配置 ---
+    for (var d = 0; d < allProcessingData.length; d++) {
+        var data = allProcessingData[d];
+        var targetProp = data.prop;
+        var targetLayer = data.layer;
+        var isTimeRemap = (targetProp.matchName === "ADBE Time Remapping");
+
+        // タイムリマップ特有の処理
+        if (isTimeRemap) {
+            // オフならオンにする（この時AEが勝手に最初と最後にキーを打つ）
+            if (!targetLayer.timeRemapEnabled) {
+                targetLayer.timeRemapEnabled = true;
+            }
+            // ★重要：キーが0個にならないよう、絶対に干渉しない遠い場所にダミーキーを置く
+            // コンポジションの長さ＋1分くらい後ろ
+            var dummyTime = comp.duration + 60;
+            targetProp.addKey(dummyTime);
+        }
+
+        // 1. 選択されていた古いキーを削除
+        for (var r = data.oldIndices.length - 1; r >= 0; r--) {
+            // プロパティが生きているか確認しながら削除
+            if (targetProp.numKeys >= (isTimeRemap ? 2 : 1)) {
+                targetProp.removeKey(data.oldIndices[r]);
+            }
+        }
+
+        // 2. タイムリマップの場合、AEが勝手に作った最初と最後のキー（もしあれば）を掃除
+        // ユーザーが選択していなかった「勝手なキー」のみを消す
+        if (isTimeRemap) {
+            // ダミーキー(最後尾)以外の、打ち直したいデータに含まれない古いキーを削除
+            for (var k = targetProp.numKeys; k >= 1; k--) {
+                var t = targetProp.keyTime(k);
+                if (t < comp.duration + 59) { // ダミー以外のキー
+                    targetProp.removeKey(k);
                 }
             }
+        }
+
+        // 3. 保存したデータからキーを再配置
+        for (var m = 0; m < data.keys.length; m++) {
+            var newTime = currentTime + (m * stepTime);
+            var newIdx = targetProp.addKey(newTime);
+            targetProp.setValueAtKey(newIdx, data.keys[m].val);
+            targetProp.setInterpolationTypeAtKey(newIdx, data.keys[m].inInterp, data.keys[m].outInterp);
+        }
+
+        // 4. 最後にダミーキーを削除
+        if (isTimeRemap) {
+            targetProp.removeKey(targetProp.numKeys);
         }
     }
 
     app.endUndoGroup();
 };
-
     var stopKeysLabel = stopKeysGroup.add("statictext", undefined, "---------タイムリマップ用---------");
     var w = new Window("palette", "LOOP設定");
 
