@@ -1,7 +1,8 @@
 <img width="206" height="164" alt="copipe" src="https://github.com/user-attachments/assets/cd40701b-c91c-49c4-9000-117024de2f64" /></br>
 </br>
 ■CoPiPe.jsx v1.1c 説明■</br>
-選択中のコンポまたはレイヤーだけを依存関係ごとAEPXに一時保存し、別起動のAEプロジェクトへ安全に貼り付ける。</br>
+選択中のコンポまたはレイヤーだけを依存関係ごとAEPXに一時保存し、
+別起動のAEプロジェクトへ安全に貼り付ける。</br>
 </br>
 ■仕組み■</br>
 Copy</br>
