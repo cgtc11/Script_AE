@@ -1,5 +1,5 @@
 // ================================
-// Shapeトリミング＋編集ツール
+// Shapeトリミング＋編集ツール by DiGiMonkey
 //  - 起点固定（W/H）
 //  - 長方形パス再帰探索
 //  - 小数点切り捨て（手動ボタンのみ）
@@ -209,7 +209,7 @@
         } catch (e) { infoText.text = "エラー: " + e; }
     }
 
-    // 情報取得
+    // 情報取得 DiGiMonkey
     btnInfo.onClick = function () {
         app.beginUndoGroup("Shape情報取得");
         try {
