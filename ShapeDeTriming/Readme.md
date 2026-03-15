@@ -1,4 +1,4 @@
-<img width="262" height="564" alt="shapedetriming" src="https://github.com/user-attachments/assets/1a92fe97-d0dc-4d8f-aa15-b4773187f264" /></br>
+
 </br>
 ■ShapeDeTriming.jsx v1.0 説明■</br>
 シェイプレイヤー内の長方形パスを基準に、コンポをトリミングし、元位置に再配置できる編集支援ツール。</br>
