@@ -1,6 +1,6 @@
 
 
-■ShapeDeTriming.jsx v1.0 説明■</br>
+■ShapeDeTriming.jsx v1.1 説明■</br>
 シェイプレイヤー内の長方形パスを基準に、コンポをトリミングし、元位置に再配置できる編集支援ツール。</br>
 </br>
 ■主な機能■</br>
