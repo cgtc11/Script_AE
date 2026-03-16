@@ -1,7 +1,6 @@
-// ExpressionFinder(English Version) v1.0 by DiGiMonkey
 (function(thisObj) {
     function buildUI(thisObj) {
-        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder", undefined, {resizeable: true});
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder Pro", undefined, {resizeable: true});
         win.orientation = "column";
         win.alignChildren = ["fill", "fill"];
         win.spacing = 10;
@@ -38,16 +37,17 @@
         listGroup.alignment = ["fill", "fill"];
         listGroup.orientation = "column";
 
+        // Added "Status" column between Type and Details
         var resList = listGroup.add("listbox", undefined, undefined, {
-            numberOfColumns: 5,
+            numberOfColumns: 6,
             showHeaders: true,
-            columnTitles: ["Composition", "Layer", "Property", "Type", "Reference Details"]
+            columnTitles: ["Composition", "Layer", "Property", "Type", "Status", "Reference Details"]
         });
         resList.alignment = ["fill", "fill"];
 
         var searchData = [];
 
-        // --- Reference Analysis Logic ---
+        // --- Logic Functions ---
         function getReferenceDetail(exp) {
             var details = [];
             var compMatch = exp.match(/comp\s*\(\s*["'](.+?)["']\s*\)/);
@@ -64,7 +64,6 @@
             var layerMatch = exp.match(/layer\s*\(\s*["'](.+?)["']\s*\)/);
             var targetName = layerMatch ? layerMatch[1] : null;
             if (targetName) {
-                // Support both English and Japanese default names for Nulls
                 if (targetName.match(/null|ヌル/i)) return true;
                 var targetLayer = comp.layer(targetName);
                 if (targetLayer) {
@@ -113,7 +112,8 @@
                 item.subItems[0].text = searchData[j].layer.name;
                 item.subItems[1].text = searchData[j].prop.name;
                 item.subItems[2].text = searchData[j].type;
-                item.subItems[3].text = searchData[j].detail;
+                item.subItems[3].text = searchData[j].status; // Status Column
+                item.subItems[4].text = searchData[j].detail;
             }
         };
 
@@ -130,6 +130,9 @@
                         else if (exp.indexOf("effect(") !== -1) type = "Effect Ref";
                         else if (exp.indexOf("layer(") !== -1 || exp.indexOf("parent") !== -1) type = "External Layer Ref";
                         
+                        // Check for Expression Errors
+                        var status = (prop.expressionError !== "") ? "Error" : "";
+
                         var detail = getReferenceDetail(exp);
                         var show = false;
                         if (ddFilter.selection.index === 0) show = true;
@@ -139,7 +142,7 @@
 
                         if (show) {
                             var layerObj = (propParent instanceof Layer) ? propParent : getLayerParent(propParent);
-                            results.push({comp: comp, layer: layerObj, prop: prop, type: type, detail: detail});
+                            results.push({comp: comp, layer: layerObj, prop: prop, type: type, status: status, detail: detail});
                         }
                     }
                 } else {
@@ -167,7 +170,8 @@
         win.onResizing = win.onResize = function() {
             this.layout.resize();
             var w = resList.size[0] - 25;
-            resList.columnWidths = [w * 0.2, w * 0.2, w * 0.2, w * 0.15, w * 0.25];
+            // Adjusted Column Widths for 6 columns
+            resList.columnWidths = [w * 0.18, w * 0.18, w * 0.18, w * 0.12, w * 0.1, w * 0.24];
         };
 
         win.layout.layout(true);

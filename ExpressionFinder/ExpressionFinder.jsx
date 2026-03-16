@@ -1,7 +1,6 @@
-// ExpressionFinder(日本語版) v1.0 by DiGiMonkey
 (function(thisObj) {
     function buildUI(thisObj) {
-        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder", undefined, {resizeable: true});
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder Pro", undefined, {resizeable: true});
         win.orientation = "column";
         win.alignChildren = ["fill", "fill"];
         win.spacing = 10;
@@ -18,18 +17,18 @@
         var scopeGroup = topControls.add("panel", undefined, "検索範囲");
         scopeGroup.orientation = "row";
         var rbAllComps = scopeGroup.add("radioButton", undefined, "全コンポ");
-        var rbSelectedComps = scopeGroup.add("radioButton", undefined, "選択したコンポのみ");
+        var rbSelectedComps = scopeGroup.add("radioButton", undefined, "選択したコンポ");
         var rbSelectedLayers = scopeGroup.add("radioButton", undefined, "選択レイヤー");
-        rbAllComps.value = true; // デフォルトを全コンポに設定
+        rbAllComps.value = true;
 
         // フィルタ・検索ボタンの行
         var filterRow = topControls.add("group");
         filterRow.orientation = "row";
         filterRow.add("statictext", undefined, "抽出対象:");
-        var ddFilter = filterRow.add("dropdownlist", undefined, ["すべて", "Null参照のみ", "他コンポ参照のみ", "エフェクト参照のみ"]);
+        var ddFilter = filterRow.add("dropdownlist", undefined, ["すべて表示", "Null参照のみ", "他コンポ参照のみ", "エフェクト参照のみ"]);
         ddFilter.selection = 0;
         
-        var btnSearch = filterRow.add("button", undefined, "エクスプレッションを検索");
+        var btnSearch = filterRow.add("button", undefined, "検索実行");
         btnSearch.alignment = ["fill", "center"];
         btnSearch.preferredSize.height = 30;
 
@@ -39,9 +38,9 @@
         listGroup.orientation = "column";
 
         var resList = listGroup.add("listbox", undefined, undefined, {
-            numberOfColumns: 5,
+            numberOfColumns: 6,
             showHeaders: true,
-            columnTitles: ["コンポジション", "レイヤー", "プロパティ", "種別", "参照先詳細"]
+            columnTitles: ["コンポ", "レイヤー", "プロパティ", "種別", "状態", "参照先詳細"]
         });
         resList.alignment = ["fill", "fill"];
 
@@ -81,19 +80,16 @@
             var targetComps = [];
 
             if (rbAllComps.value) {
-                // プロジェクト内の全コンポ
                 for (var i = 1; i <= app.project.numItems; i++) {
                     if (app.project.item(i) instanceof CompItem) targetComps.push(app.project.item(i));
                 }
             } else if (rbSelectedComps.value) {
-                // プロジェクトパネルで選択されているコンポ
                 var selectedItems = app.project.selection;
                 for (var i = 0; i < selectedItems.length; i++) {
                     if (selectedItems[i] instanceof CompItem) targetComps.push(selectedItems[i]);
                 }
-                if (targetComps.length === 0) alert("プロジェクトパネルでコンポジションを選択してください。");
+                if (targetComps.length === 0) alert("プロジェクトパネルでコンポを選択してください。");
             } else if (rbSelectedLayers.value) {
-                // 現在のアクティブコンポの選択レイヤー
                 var activeItem = app.project.activeItem;
                 if (activeItem && activeItem instanceof CompItem) {
                     var selLayers = activeItem.selectedLayers;
@@ -103,7 +99,6 @@
                 }
             }
 
-            // 収集したコンポを回して検索
             for (var c = 0; c < targetComps.length; c++) {
                 var comp = targetComps[c];
                 for (var l = 1; l <= comp.numLayers; l++) {
@@ -111,13 +106,13 @@
                 }
             }
 
-            // リスト追加
             for (var j = 0; j < searchData.length; j++) {
                 var item = resList.add("item", searchData[j].comp.name);
                 item.subItems[0].text = searchData[j].layer.name;
                 item.subItems[1].text = searchData[j].prop.name;
                 item.subItems[2].text = searchData[j].type;
-                item.subItems[3].text = searchData[j].detail;
+                item.subItems[3].text = searchData[j].status;
+                item.subItems[4].text = searchData[j].detail;
             }
         };
 
@@ -128,13 +123,15 @@
                 if (prop.propertyType === PropertyType.PROPERTY) {
                     if (prop.canSetExpression && prop.expressionEnabled && prop.expression !== "") {
                         var exp = prop.expression;
-                        var type = "内部/計算";
+                        var type = "内部計算";
                         if (exp.indexOf("comp(") !== -1) type = "他コンポ参照";
                         else if (isNullReference(exp, comp)) type = "Null参照";
                         else if (exp.indexOf("effect(") !== -1) type = "エフェクト参照";
                         else if (exp.indexOf("layer(") !== -1 || exp.indexOf("parent") !== -1) type = "外部レイヤー参照";
                         
+                        var status = (prop.expressionError !== "") ? "エラー" : "";
                         var detail = getReferenceDetail(exp);
+                        
                         var show = false;
                         if (ddFilter.selection.index === 0) show = true;
                         if (ddFilter.selection.index === 1 && type === "Null参照") show = true;
@@ -143,7 +140,7 @@
 
                         if (show) {
                             var layerObj = (propParent instanceof Layer) ? propParent : getLayerParent(propParent);
-                            results.push({comp: comp, layer: layerObj, prop: prop, type: type, detail: detail});
+                            results.push({comp: comp, layer: layerObj, prop: prop, type: type, status: status, detail: detail});
                         }
                     }
                 } else {
@@ -171,7 +168,7 @@
         win.onResizing = win.onResize = function() {
             this.layout.resize();
             var w = resList.size[0] - 25;
-            resList.columnWidths = [w * 0.2, w * 0.2, w * 0.2, w * 0.15, w * 0.25];
+            resList.columnWidths = [w * 0.18, w * 0.18, w * 0.18, w * 0.12, w * 0.1, w * 0.24];
         };
 
         win.layout.layout(true);
