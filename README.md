@@ -23,6 +23,16 @@
 　</h2>
   <p><strong>目的:</strong> 2色だけにボカしをかけるフィルター</p>
 
+  <h2 id="EffectReplacer">
+  <a href="https://github.com/cgtc11/Script_AE/tree/main/EffectReplacer">EffectReplacer</a>
+　</h2>
+  <p><strong>目的:</strong> エフェクトを別のエフェクトと差し替えるスクリプト</p>
+
+  <h2 id="ExpressionFinder">
+  <a href="https://github.com/cgtc11/Script_AE/tree/main/ExpressionFinder">ExpressionFinder</a>
+　</h2>
+  <p><strong>目的:</strong> 使用されてるエクスプレッションを探すスクリプト</p>
+  
   <h2 id="CopySelectedFootageFiles">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/CopySelectedFootageFiles">CopySelectedFootageFiles</a>
 　</h2>
