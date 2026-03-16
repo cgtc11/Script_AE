@@ -1,11 +1,8 @@
-ExpressionFinder</br>
 
+■ExpressionFinder■</br>
 </br>
-
 使用されてるエクスプレッションを探してリスト表示します</br>
-
 リストをダブルクリックで、レイヤーを表示してその場所へ飛びます</br>
-
 </br>
 
 
