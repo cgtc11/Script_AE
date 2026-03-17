@@ -1,4 +1,4 @@
-//ExpressionFinder ｖ1.1 by Digimonkey
+//ExpressionFinder v1.1.2 by Digimonkey
 (function(thisObj) {
     function buildUI(thisObj) {
         var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder", undefined, {resizeable: true});
@@ -14,7 +14,7 @@
         topControls.alignment = ["fill", "top"];
         topControls.spacing = 8;
 
-        var scopeGroup = topControls.add("panel", undefined, "検索範囲");
+        var scopeGroup = topControls.add("panel", undefined, "検索範囲 (検索実行用)");
         scopeGroup.orientation = "row";
         var rbAllComps = scopeGroup.add("radioButton", undefined, "全コンポ");
         var rbSelectedComps = scopeGroup.add("radioButton", undefined, "選択したコンポ");
@@ -32,7 +32,7 @@
 
         var btnFixNames = topControls.add("button", undefined, "レイヤー名を現在の名称で固定 (ロック対応)");
         btnFixNames.preferredSize.height = 30;
-        btnFixNames.helpTip = "ソース名とレイヤー名が連動しないよう、現在の名前をレイヤー名として上書き固定します。";
+        btnFixNames.helpTip = "選択レイヤー ＞ 選択素材の使用先 ＞ 全コンポ の優先順位で名前を固定します。";
 
         // --- リスト表示エリア ---
         var listGroup = win.add("group");
@@ -48,12 +48,20 @@
 
         var searchData = [];
 
+        // 全コンポを取得するヘルパー
+        function getAllComps() {
+            var comps = [];
+            for (var i = 1; i <= app.project.numItems; i++) {
+                if (app.project.item(i) instanceof CompItem) comps.push(app.project.item(i));
+            }
+            return comps;
+        }
+
+        // 検索実行用のターゲット取得
         function getTargetComps() {
             var comps = [];
             if (rbAllComps.value) {
-                for (var i = 1; i <= app.project.numItems; i++) {
-                    if (app.project.item(i) instanceof CompItem) comps.push(app.project.item(i));
-                }
+                comps = getAllComps();
             } else {
                 var selectedItems = app.project.selection;
                 for (var i = 0; i < selectedItems.length; i++) {
@@ -63,32 +71,71 @@
             return comps;
         }
 
-        // --- 【修正】名前固定ロジック (ロック・ヌル対応) ---
+        // --- 名前固定ロジック (強化版) ---
         btnFixNames.onClick = function() {
-            var targetComps = getTargetComps();
-            if (targetComps.length === 0) return alert("対象コンポがありません。");
+            var layersToProcess = [];
+            var activeComp = app.project.activeItem;
 
-            app.beginUndoGroup("レイヤー名を固定");
+            // 1. タイムラインでレイヤーが選択されている場合
+            if (activeComp && activeComp instanceof CompItem && activeComp.selectedLayers.length > 0) {
+                layersToProcess = activeComp.selectedLayers;
+            } 
+            
+            // 2. タイムラインで未選択なら、プロジェクトパネルの選択を確認
+            if (layersToProcess.length === 0 && app.project.selection.length > 0) {
+                var selectedItems = app.project.selection;
+                var allComps = getAllComps();
+
+                for (var i = 0; i < selectedItems.length; i++) {
+                    var item = selectedItems[i];
+                    if (item instanceof CompItem) {
+                        // コンポならその中の全レイヤー
+                        for (var l = 1; l <= item.numLayers; l++) {
+                            layersToProcess.push(item.layer(l));
+                        }
+                    } else if (item instanceof FootageItem) {
+                        // 素材なら、全コンポをスキャンしてその素材を使っているレイヤーを探す
+                        for (var c = 0; c < allComps.length; c++) {
+                            var comp = allComps[c];
+                            for (var l = 1; l <= comp.numLayers; l++) {
+                                var lyr = comp.layer(l);
+                                if (lyr.hasVideo && lyr.source === item) {
+                                    layersToProcess.push(lyr);
+                                }
+                            }
+                        }
+                    }
+                }
+            } 
+
+            // 3. まだ対象が0なら（何も選択していない or フォルダ選択など）、全コンポを対象にする
+            if (layersToProcess.length === 0) {
+                var allComps = getAllComps();
+                for (var i = 0; i < allComps.length; i++) {
+                    var comp = allComps[i];
+                    for (var l = 1; l <= comp.numLayers; l++) {
+                        layersToProcess.push(comp.layer(l));
+                    }
+                }
+            }
+
+            if (layersToProcess.length === 0) return alert("プロジェクト内にレイヤーが見つかりません。");
+
+            app.beginUndoGroup("レイヤー名を固定 (Expression Finder)");
             var count = 0;
             try {
-                for (var c = 0; c < targetComps.length; c++) {
-                    var comp = targetComps[c];
-                    for (var l = 1; l <= comp.numLayers; l++) {
-                        var layer = comp.layer(l);
-                        var isLocked = layer.locked;
-                        
-                        // ロックされていたら一時解除
-                        if (isLocked) layer.locked = false;
+                for (var n = 0; n < layersToProcess.length; n++) {
+                    var layer = layersToProcess[n];
+                    var isLocked = layer.locked;
+                    
+                    if (isLocked) layer.locked = false;
 
-                        // 現在の名前を明示的にセット（これでソース名変更の影響を受けなくなります）
-                        // ヌルでもフッテージでも、今見えている名前で固定します
-                        var currentName = layer.name;
-                        layer.name = "temp_name"; // 一度変えないと「変更なし」とみなされる場合があるため
-                        layer.name = currentName;
+                    var currentName = layer.name;
+                    layer.name = "temp_name"; 
+                    layer.name = currentName;
 
-                        if (isLocked) layer.locked = true;
-                        count++;
-                    }
+                    if (isLocked) layer.locked = true;
+                    count++;
                 }
                 alert(count + " 個のレイヤー名を固定しました。");
             } catch (e) {
@@ -112,9 +159,7 @@
         }
 
         function isNullReference(exp, comp) {
-            // "layer(" の引数に "null" や "ヌル" が含まれる、または parent を参照している場合
             if (exp.match(/layer\s*\(\s*["'].*?(null|ヌル).*?["']\s*\)/i)) return true;
-            // 単純にコード内に null という単語があり、それが layer 参照っぽい場合
             if (exp.match(/\.layer\([^\)]*?(null|ヌル)[^\)]*?\)/i)) return true;
             return false;
         }
