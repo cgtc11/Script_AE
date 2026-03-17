@@ -1,4 +1,4 @@
-//ExpressionFinder v1.1 by Digimonkey (English Version)
+//ExpressionFinder v1.1.2 (English UI) by Digimonkey
 (function(thisObj) {
     function buildUI(thisObj) {
         var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder", undefined, {resizeable: true});
@@ -7,14 +7,14 @@
         win.spacing = 10;
         win.margins = 16;
 
-        // --- Top Control Area ---
+        // --- Top Controls ---
         var topControls = win.add("group");
         topControls.orientation = "column";
         topControls.alignChildren = ["fill", "top"];
         topControls.alignment = ["fill", "top"];
         topControls.spacing = 8;
 
-        var scopeGroup = topControls.add("panel", undefined, "Search Scope");
+        var scopeGroup = topControls.add("panel", undefined, "Search Range (for Search Execution)");
         scopeGroup.orientation = "row";
         var rbAllComps = scopeGroup.add("radioButton", undefined, "All Comps");
         var rbSelectedComps = scopeGroup.add("radioButton", undefined, "Selected Comps");
@@ -30,11 +30,11 @@
         var btnSearch = filterRow.add("button", undefined, "Run Search");
         btnSearch.alignment = ["fill", "center"];
 
-        var btnFixNames = topControls.add("button", undefined, "Lock Layer Names (Fix Source Link)");
+        var btnFixNames = topControls.add("button", undefined, "Fix Layer Names to Current (Lock-aware)");
         btnFixNames.preferredSize.height = 30;
-        btnFixNames.helpTip = "Sets the current layer name as a custom name to prevent broken expressions when changing source names.";
+        btnFixNames.helpTip = "Priority: Selected Layers > Usage of Selected Items > All Comps.";
 
-        // --- List Display Area ---
+        // --- List Area ---
         var listGroup = win.add("group");
         listGroup.alignment = ["fill", "fill"];
         listGroup.orientation = "column";
@@ -42,18 +42,26 @@
         var resList = listGroup.add("listbox", undefined, undefined, {
             numberOfColumns: 6,
             showHeaders: true,
-            columnTitles: ["Comp", "Layer", "Property", "Type", "Status", "Reference Detail"]
+            columnTitles: ["Comp", "Layer", "Property", "Type", "Status", "Details"]
         });
         resList.alignment = ["fill", "fill"];
 
         var searchData = [];
 
+        // Helper to get all comps
+        function getAllComps() {
+            var comps = [];
+            for (var i = 1; i <= app.project.numItems; i++) {
+                if (app.project.item(i) instanceof CompItem) comps.push(app.project.item(i));
+            }
+            return comps;
+        }
+
+        // Target comps for Search execution
         function getTargetComps() {
             var comps = [];
             if (rbAllComps.value) {
-                for (var i = 1; i <= app.project.numItems; i++) {
-                    if (app.project.item(i) instanceof CompItem) comps.push(app.project.item(i));
-                }
+                comps = getAllComps();
             } else {
                 var selectedItems = app.project.selection;
                 for (var i = 0; i < selectedItems.length; i++) {
@@ -63,31 +71,71 @@
             return comps;
         }
 
-        // --- Fix Name Logic ---
+        // --- Fix Names Logic ---
         btnFixNames.onClick = function() {
-            var targetComps = getTargetComps();
-            if (targetComps.length === 0) return alert("No target compositions found.");
+            var layersToProcess = [];
+            var activeComp = app.project.activeItem;
 
-            app.beginUndoGroup("Fix Layer Names");
-            var count = 0;
-            try {
-                for (var c = 0; c < targetComps.length; c++) {
-                    var comp = targetComps[c];
-                    for (var l = 1; l <= comp.numLayers; l++) {
-                        var layer = comp.layer(l);
-                        var isLocked = layer.locked;
-                        
-                        if (isLocked) layer.locked = false;
+            // 1. If layers are selected in timeline
+            if (activeComp && activeComp instanceof CompItem && activeComp.selectedLayers.length > 0) {
+                layersToProcess = activeComp.selectedLayers;
+            } 
+            
+            // 2. If no layers selected, check project panel selection
+            if (layersToProcess.length === 0 && app.project.selection.length > 0) {
+                var selectedItems = app.project.selection;
+                var allComps = getAllComps();
 
-                        var currentName = layer.name;
-                        layer.name = "temp_name";
-                        layer.name = currentName;
-
-                        if (isLocked) layer.locked = true;
-                        count++;
+                for (var i = 0; i < selectedItems.length; i++) {
+                    var item = selectedItems[i];
+                    if (item instanceof CompItem) {
+                        for (var l = 1; l <= item.numLayers; l++) {
+                            layersToProcess.push(item.layer(l));
+                        }
+                    } else if (item instanceof FootageItem) {
+                        for (var c = 0; c < allComps.length; c++) {
+                            var comp = allComps[c];
+                            for (var l = 1; l <= comp.numLayers; l++) {
+                                var lyr = comp.layer(l);
+                                if (lyr.hasVideo && lyr.source === item) {
+                                    layersToProcess.push(lyr);
+                                }
+                            }
+                        }
                     }
                 }
-                alert("Fixed " + count + " layer names.");
+            } 
+
+            // 3. If still 0, target all layers in all comps
+            if (layersToProcess.length === 0) {
+                var allComps = getAllComps();
+                for (var i = 0; i < allComps.length; i++) {
+                    var comp = allComps[i];
+                    for (var l = 1; l <= comp.numLayers; l++) {
+                        layersToProcess.push(comp.layer(l));
+                    }
+                }
+            }
+
+            if (layersToProcess.length === 0) return alert("No layers found in project.");
+
+            app.beginUndoGroup("Fix Layer Names (Expression Finder)");
+            var count = 0;
+            try {
+                for (var n = 0; n < layersToProcess.length; n++) {
+                    var layer = layersToProcess[n];
+                    var isLocked = layer.locked;
+                    
+                    if (isLocked) layer.locked = false;
+
+                    var currentName = layer.name;
+                    layer.name = "temp_name"; 
+                    layer.name = currentName;
+
+                    if (isLocked) layer.locked = true;
+                    count++;
+                }
+                alert(count + " layer names have been fixed.");
             } catch (e) {
                 alert("Error: " + e.toString());
             } finally {
@@ -153,14 +201,14 @@
                 if (prop.propertyType === PropertyType.PROPERTY) {
                     if (prop.canSetExpression && prop.expressionEnabled && prop.expression !== "") {
                         var exp = prop.expression;
-                        var type = "Internal";
+                        var type = "Internal Calc";
                         
                         if (exp.indexOf("comp(") !== -1) type = "Comp Ref";
                         else if (isNullReference(exp, comp)) type = "Null Ref";
                         else if (exp.indexOf("effect(") !== -1) type = "Effect Ref";
-                        else if (exp.indexOf("layer(") !== -1 || exp.indexOf("parent") !== -1) type = "External Layer Ref";
+                        else if (exp.indexOf("layer(") !== -1 || exp.indexOf("parent") !== -1) type = "Layer Ref";
                         
-                        var status = (prop.expressionError !== "") ? "Error" : "OK";
+                        var status = (prop.expressionError !== "") ? "Error" : "";
                         var detail = getReferenceDetail(exp);
                         
                         var show = false;
@@ -200,7 +248,7 @@
         win.onResizing = win.onResize = function() {
             this.layout.resize();
             var w = resList.size[0] - 25;
-            resList.columnWidths = [w * 0.15, w * 0.15, w * 0.18, w * 0.15, w * 0.1, w * 0.27];
+            resList.columnWidths = [w * 0.18, w * 0.18, w * 0.18, w * 0.12, w * 0.1, w * 0.24];
         };
 
         win.layout.layout(true);
