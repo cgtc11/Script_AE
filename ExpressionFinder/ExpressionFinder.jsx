@@ -1,19 +1,19 @@
+//ExpressionFinder ｖ1.1 by Digimonkey
 (function(thisObj) {
     function buildUI(thisObj) {
-        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder Pro", undefined, {resizeable: true});
+        var win = (thisObj instanceof Panel) ? thisObj : new Window("palette", "Expression Finder", undefined, {resizeable: true});
         win.orientation = "column";
         win.alignChildren = ["fill", "fill"];
         win.spacing = 10;
         win.margins = 16;
 
-        // --- 上部設定エリア（固定） ---
+        // --- 上部設定エリア ---
         var topControls = win.add("group");
         topControls.orientation = "column";
         topControls.alignChildren = ["fill", "top"];
         topControls.alignment = ["fill", "top"];
-        topControls.spacing = 10;
+        topControls.spacing = 8;
 
-        // 検索範囲パネル
         var scopeGroup = topControls.add("panel", undefined, "検索範囲");
         scopeGroup.orientation = "row";
         var rbAllComps = scopeGroup.add("radioButton", undefined, "全コンポ");
@@ -21,18 +21,20 @@
         var rbSelectedLayers = scopeGroup.add("radioButton", undefined, "選択レイヤー");
         rbAllComps.value = true;
 
-        // フィルタ・検索ボタンの行
         var filterRow = topControls.add("group");
         filterRow.orientation = "row";
-        filterRow.add("statictext", undefined, "抽出対象:");
+        filterRow.add("statictext", undefined, "抽出:");
         var ddFilter = filterRow.add("dropdownlist", undefined, ["すべて表示", "Null参照のみ", "他コンポ参照のみ", "エフェクト参照のみ"]);
         ddFilter.selection = 0;
         
         var btnSearch = filterRow.add("button", undefined, "検索実行");
         btnSearch.alignment = ["fill", "center"];
-        btnSearch.preferredSize.height = 30;
 
-        // --- リスト表示エリア（伸縮） ---
+        var btnFixNames = topControls.add("button", undefined, "レイヤー名を現在の名称で固定 (ロック対応)");
+        btnFixNames.preferredSize.height = 30;
+        btnFixNames.helpTip = "ソース名とレイヤー名が連動しないよう、現在の名前をレイヤー名として上書き固定します。";
+
+        // --- リスト表示エリア ---
         var listGroup = win.add("group");
         listGroup.alignment = ["fill", "fill"];
         listGroup.orientation = "column";
@@ -46,7 +48,57 @@
 
         var searchData = [];
 
-        // --- 参照解析ロジック ---
+        function getTargetComps() {
+            var comps = [];
+            if (rbAllComps.value) {
+                for (var i = 1; i <= app.project.numItems; i++) {
+                    if (app.project.item(i) instanceof CompItem) comps.push(app.project.item(i));
+                }
+            } else {
+                var selectedItems = app.project.selection;
+                for (var i = 0; i < selectedItems.length; i++) {
+                    if (selectedItems[i] instanceof CompItem) comps.push(selectedItems[i]);
+                }
+            }
+            return comps;
+        }
+
+        // --- 【修正】名前固定ロジック (ロック・ヌル対応) ---
+        btnFixNames.onClick = function() {
+            var targetComps = getTargetComps();
+            if (targetComps.length === 0) return alert("対象コンポがありません。");
+
+            app.beginUndoGroup("レイヤー名を固定");
+            var count = 0;
+            try {
+                for (var c = 0; c < targetComps.length; c++) {
+                    var comp = targetComps[c];
+                    for (var l = 1; l <= comp.numLayers; l++) {
+                        var layer = comp.layer(l);
+                        var isLocked = layer.locked;
+                        
+                        // ロックされていたら一時解除
+                        if (isLocked) layer.locked = false;
+
+                        // 現在の名前を明示的にセット（これでソース名変更の影響を受けなくなります）
+                        // ヌルでもフッテージでも、今見えている名前で固定します
+                        var currentName = layer.name;
+                        layer.name = "temp_name"; // 一度変えないと「変更なし」とみなされる場合があるため
+                        layer.name = currentName;
+
+                        if (isLocked) layer.locked = true;
+                        count++;
+                    }
+                }
+                alert(count + " 個のレイヤー名を固定しました。");
+            } catch (e) {
+                alert("エラー: " + e.toString());
+            } finally {
+                app.endUndoGroup();
+            }
+        };
+
+        // --- 解析ロジック ---
         function getReferenceDetail(exp) {
             var details = [];
             var compMatch = exp.match(/comp\s*\(\s*["'](.+?)["']\s*\)/);
@@ -60,36 +112,18 @@
         }
 
         function isNullReference(exp, comp) {
-            var layerMatch = exp.match(/layer\s*\(\s*["'](.+?)["']\s*\)/);
-            var targetName = layerMatch ? layerMatch[1] : null;
-            if (targetName) {
-                if (targetName.match(/null|ヌル/i)) return true;
-                var targetLayer = comp.layer(targetName);
-                if (targetLayer) {
-                    if (targetLayer.nullLayer) return true;
-                    if (targetLayer.width === 100 && targetLayer.height === 100) return true;
-                }
-            }
-            if (exp.match(/null|ヌル/i)) return true;
+            // "layer(" の引数に "null" や "ヌル" が含まれる、または parent を参照している場合
+            if (exp.match(/layer\s*\(\s*["'].*?(null|ヌル).*?["']\s*\)/i)) return true;
+            // 単純にコード内に null という単語があり、それが layer 参照っぽい場合
+            if (exp.match(/\.layer\([^\)]*?(null|ヌル)[^\)]*?\)/i)) return true;
             return false;
         }
 
         btnSearch.onClick = function() {
             resList.removeAll();
             searchData = [];
-            var targetComps = [];
-
-            if (rbAllComps.value) {
-                for (var i = 1; i <= app.project.numItems; i++) {
-                    if (app.project.item(i) instanceof CompItem) targetComps.push(app.project.item(i));
-                }
-            } else if (rbSelectedComps.value) {
-                var selectedItems = app.project.selection;
-                for (var i = 0; i < selectedItems.length; i++) {
-                    if (selectedItems[i] instanceof CompItem) targetComps.push(selectedItems[i]);
-                }
-                if (targetComps.length === 0) alert("プロジェクトパネルでコンポを選択してください。");
-            } else if (rbSelectedLayers.value) {
+            
+            if (rbSelectedLayers.value) {
                 var activeItem = app.project.activeItem;
                 if (activeItem && activeItem instanceof CompItem) {
                     var selLayers = activeItem.selectedLayers;
@@ -97,12 +131,13 @@
                         searchRecursive(selLayers[l], activeItem, searchData);
                     }
                 }
-            }
-
-            for (var c = 0; c < targetComps.length; c++) {
-                var comp = targetComps[c];
-                for (var l = 1; l <= comp.numLayers; l++) {
-                    searchRecursive(comp.layer(l), comp, searchData);
+            } else {
+                var targetComps = getTargetComps();
+                for (var c = 0; c < targetComps.length; c++) {
+                    var comp = targetComps[c];
+                    for (var l = 1; l <= comp.numLayers; l++) {
+                        searchRecursive(comp.layer(l), comp, searchData);
+                    }
                 }
             }
 
@@ -124,6 +159,7 @@
                     if (prop.canSetExpression && prop.expressionEnabled && prop.expression !== "") {
                         var exp = prop.expression;
                         var type = "内部計算";
+                        
                         if (exp.indexOf("comp(") !== -1) type = "他コンポ参照";
                         else if (isNullReference(exp, comp)) type = "Null参照";
                         else if (exp.indexOf("effect(") !== -1) type = "エフェクト参照";
@@ -133,10 +169,11 @@
                         var detail = getReferenceDetail(exp);
                         
                         var show = false;
-                        if (ddFilter.selection.index === 0) show = true;
-                        if (ddFilter.selection.index === 1 && type === "Null参照") show = true;
-                        if (ddFilter.selection.index === 2 && type === "他コンポ参照") show = true;
-                        if (ddFilter.selection.index === 3 && type === "エフェクト参照") show = true;
+                        var idx = ddFilter.selection.index;
+                        if (idx === 0) show = true;
+                        else if (idx === 1 && type === "Null参照") show = true;
+                        else if (idx === 2 && type === "他コンポ参照") show = true;
+                        else if (idx === 3 && type === "エフェクト参照") show = true;
 
                         if (show) {
                             var layerObj = (propParent instanceof Layer) ? propParent : getLayerParent(propParent);
