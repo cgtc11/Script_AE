@@ -41,7 +41,7 @@
   <h2 id="o-tools">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/O-Tools">o-tools</a>
 　</h2>
-  <p><strong>目的:</strong> 普段自分がよく使うスクリプト集。名称編集、タイムリマップ系、整頓、字幕等々…。</p>
+  <p><strong>目的:</strong> よく使うスクリプトを纏めたもの。名前の編集、タイムリマップ系、整理整頓等々…。</p>
 
   <h2 id="ScriptBrowser">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/ScriptBrowser">ScriptBrowser</a>
