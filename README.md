@@ -1,7 +1,7 @@
 
 <section id="digimonkey-toolkits">
   <h1>AfterEffects Script</h1>
-  <p>After Effectsで使用できるスクリプトをまとめてます</p>
+  <p>After Effectsで使用できるスクリプトを作成してまとめてます</p>
   <hr>
   <h2 id="CCParticleWorldBirthRate">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/CCParticleWorldBirthRate">CCParticleWorldBirthRate</a>
