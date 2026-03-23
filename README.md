@@ -31,7 +31,7 @@
   <h2 id="ExpressionFinder">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/ExpressionFinder">ExpressionFinder</a>
 　</h2>
-  <p><strong>目的:</strong> 使用されてるエクスプレッションを探すスクリプト</p>
+  <p><strong>目的:</strong> エクスプレッションをリスト化するスクリプト</p>
   
   <h2 id="CopySelectedFootageFiles">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/CopySelectedFootageFiles">CopySelectedFootageFiles</a>
@@ -41,7 +41,7 @@
   <h2 id="o-tools">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/O-Tools">o-tools</a>
 　</h2>
-  <p><strong>目的:</strong> 多機能パネル。名称編集、タイムリマップ、整列、削除、シェイプ操作など</p>
+  <p><strong>目的:</strong> 普段自分がよく使うスクリプト集。名称編集、タイムリマップ系、整頓、字幕等々…。</p>
 
   <h2 id="ScriptBrowser">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/ScriptBrowser">ScriptBrowser</a>
@@ -56,7 +56,7 @@
   <h2 id="shapedetriming">
   <a href="https://github.com/cgtc11/Script_AE/tree/main/ShapeDeTriming">ShapeDeTriming</a>
 　</h2>
-  <p><strong>目的:</strong> 長方形シェイプレイヤーで囲ってる範囲をトリミングする</p>
+  <p><strong>目的:</strong> 長方形シェイプレイヤーで囲ってる範囲をトリミング</p>
  
   <h2 id="support">問い合わせ</h2>
   <p>不具合、要望は再現手順と AE バージョン、OS、使用エフェクト名を記載してご連絡ください。</p>
