@@ -1,4 +1,4 @@
-// CoPiPe.jsx v1.1c by DigiMonkey (Modified)
+// CoPiPe.jsx v1.1d by DigiMonkey (Modified)
 // Mode: Comp / Layer を選択
 // Copy : 依存縮小 → Desktop/CoPiPe.aepx 保存 → Undoで復帰 → 元のファイル名に復帰
 // Past : CoPiPe.aepx 読込 → 直下フォルダ名を「CoPiPe」に変更
@@ -47,14 +47,14 @@
     function saveAEPX(){
         var f = new File(AEPX_PATH);
         try{ if (f.exists) f.remove(); }catch(e){}
-        app.project.save(f); // ここで一旦 CoPiPe.aepx になる
+        app.project.save(f); 
     }
     function undoOnce(){
         try{ var id = app.findMenuCommandId("Undo"); if (id){ app.executeCommand(id); return; } }catch(e){}
         try{ app.executeCommand(16); }catch(e){}
     }
 
-    // ---- ビュー保持（強制復帰版）----
+    // ---- ビュー保持 ----
     function withViewPreserved(doWork){
         var prevItem = app.project.activeItem;
         var prevTime = null, prevSelIdx = [];
@@ -111,11 +111,22 @@
             }
         }
     }
+
     function buildKeepSetFromComps(comps){
         var keep={};
+        // 1. 指定されたコンポの依存関係をキープ
         for (var i=0;i<comps.length;i++) collectDepsFromComp(comps[i], keep);
+        
+        // 2. プロジェクトパネルで選択されている全アイテムをキープ
+        var selItems = app.project.selection;
+        if (selItems && selItems.length > 0) {
+            for (var j = 0; j < selItems.length; j++) {
+                keep[selItems[j].id] = true;
+            }
+        }
         return keep;
     }
+
     function strictReduceKeepSet(keep){
         for (var i=app.project.numItems; i>=1; i--){
             var it=app.project.item(i);
@@ -135,24 +146,27 @@
     // -------- Comp: Copy / Past --------
     function copyComp(){
         var comps = selectedComps();
-        if (comps.length===0) return;
+        var selItems = app.project.selection;
 
-        var originalFile = app.project.file; // ★現在のファイルパスを記憶
+        // コンポもアイテムも選ばれていなければ終了
+        if (comps.length === 0 && (!selItems || selItems.length === 0)) return;
 
-        app.beginUndoGroup("CoPiPe Comp Copy");
+        var originalFile = app.project.file;
+
+        app.beginUndoGroup("CoPiPe Comp/Item Copy");
         try{
             var keep = buildKeepSetFromComps(comps);
             strictReduceKeepSet(keep);
         } finally { app.endUndoGroup(); }
 
-        saveAEPX(); // Desktopに保存（この時、AE上の名前がCoPiPeになる）
-        undoOnce(); // 削除したアイテムを元に戻す
+        saveAEPX();
+        undoOnce();
 
-        // ★元のファイル名に戻す
         if (originalFile !== null) {
             app.project.save(originalFile);
         }
     }
+
     function pastComp(){
         var f = new File(AEPX_PATH);
         if (!f.exists) return;
@@ -165,7 +179,7 @@
 
     // -------- Layer: Copy / Past --------
     function copyLayer(){
-        var originalFile = app.project.file; // ★現在のファイルパスを記憶
+        var originalFile = app.project.file;
 
         withViewPreserved(function(){
             var comp = ensureActiveComp();
@@ -192,12 +206,12 @@
             saveAEPX();
             undoOnce();
 
-            // ★元のファイル名に戻す
             if (originalFile !== null) {
                 app.project.save(originalFile);
             }
         });
     }
+
     function pastLayer(){
         withViewPreserved(function(){
             var dst = ensureActiveComp();
