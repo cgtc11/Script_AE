@@ -8,25 +8,73 @@
 //  - 情報取得時に不透明度を自動変更
 // ================================
 (function () {
-    var win = new Window("palette", "Shapeトリミング+編集ツール", undefined);
+    var SETTINGS_SECTION = "ShapeDeTriming";
+    var SETTINGS_LANGUAGE = "language";
+    var language = "ja";
+    try {
+        if (app.settings.haveSetting(SETTINGS_SECTION, SETTINGS_LANGUAGE)) {
+            language = app.settings.getSetting(SETTINGS_SECTION, SETTINGS_LANGUAGE) === "en" ? "en" : "ja";
+        }
+    } catch (e) { language = "ja"; }
+
+    var strings = {
+        ja: {
+            title: "Shapeトリミング+編集ツール", language: "言語:", warning: "※ スケールは X,Y=100,100 にしてください",
+            guide: "シェイプレイヤーを選択して「情報取得」\nその後、編集・トリミング。", getInfo: "情報取得",
+            floor: "小数点以下切り捨て", opacity: "取得と同時に透明度30%", trim: "コンポをトリミング（時間も調整）",
+            place: "配置", moveStep: "移動ステップ(px):", apply: "適用", origin: "W/H起点",
+            compInfo: "◆ コンポ情報 ◆", size: "サイズ", duration: "全体時間", sec: "秒", shapeInfo: "◆ シェイプレイヤー情報 ◆",
+            baseSize: "元サイズ", scale: "スケール", actualSize: "実サイズ", pathPos: "パス位置",
+            transformPos: "トランスフォーム位置", layerPos: "レイヤー位置", topLeft: "左上座標", layerTime: "◆ レイヤー時間 ◆",
+            error: "エラー: ", noComp: "コンポがアクティブではありません。", selectShape: "シェイプレイヤーを選択してください。",
+            noRect: "長方形パスが見つかりません。", noRectData: "長方形の位置/サイズが取得できません。",
+            selectLayers: "レイヤーを選択してください。", getFirst: "先に「情報取得」を実行してください。",
+            selectTargets: "移動させるレイヤーを選択してください。", parentOffset: "親ヌル移動", trimComplete: "トリム完了",
+            newCompSize: "新しいコンポサイズ", undoInfo: "Shape情報取得", undoFloor: "小数点以下切り捨て",
+            undoMove: "Shape移動", undoTrim: "コンポトリミング", undoPlace: "配置"
+        },
+        en: {
+            title: "Shape Trimming + Editing Tool", language: "Language:", warning: "※ Set Scale to X,Y=100,100",
+            guide: "Select a shape layer and click 'Get Info'.\nThen edit or trim.", getInfo: "Get Info",
+            floor: "Floor Decimals", opacity: "Set Opacity to 30% on Get", trim: "Trim Comp (Adjust Time)",
+            place: "Place", moveStep: "Move Step (px):", apply: "Apply", origin: "W/H Origin",
+            compInfo: "◆ Comp Info ◆", size: "Size", duration: "Duration", sec: "s", shapeInfo: "◆ Shape Layer Info ◆",
+            baseSize: "Base Size", scale: "Scale", actualSize: "Actual Size", pathPos: "Path Pos",
+            transformPos: "Group Transform Pos", layerPos: "Layer Pos", topLeft: "Top-Left Coord", layerTime: "◆ Layer Timing ◆",
+            error: "Error: ", noComp: "No active composition found.", selectShape: "Please select a shape layer.",
+            noRect: "Rectangle path not found.", noRectData: "Could not retrieve rectangle position/size.",
+            selectLayers: "Please select layers.", getFirst: "Please run 'Get Info' first.",
+            selectTargets: "Please select target layers.", parentOffset: "Parent Null Offset", trimComplete: "Trim Complete",
+            newCompSize: "New Comp Size", undoInfo: "Get Shape Info", undoFloor: "Floor Decimals",
+            undoMove: "Move Shape", undoTrim: "Trim Comp", undoPlace: "Placement"
+        }
+    };
+    function tr(key) { return strings[language][key]; }
+
+    var win = new Window("palette", tr("title"), undefined);
     win.orientation = "column"; win.alignChildren = ["fill", "top"]; win.margins = 6; win.spacing = 4;
 
+    var languageRow = win.add("group"); languageRow.alignment = ["right", "top"];
+    var languageLabel = languageRow.add("statictext", undefined, tr("language"));
+    var languageList = languageRow.add("dropdownlist", undefined, ["日本語", "English"]);
+    languageList.selection = language === "en" ? 1 : 0;
+
     // 注意
-    var warn = win.add("statictext", undefined, "※ スケールは X,Y=100,100 にしてください");
+    var warn = win.add("statictext", undefined, tr("warning"));
     warn.graphics.foregroundColor = warn.graphics.newPen(warn.graphics.PenType.SOLID_COLOR, [1, 0.4, 0], 1);
-    win.add("statictext", undefined, "シェイプレイヤーを選択して「情報取得」\nその後、編集・トリミング。");
+    var guide = win.add("statictext", undefined, tr("guide"));
 
     // ボタン行
     var btnRow = win.add("group"); btnRow.spacing = 4;
-    var btnInfo = btnRow.add("button", undefined, "情報取得");
-    var btnFloor = btnRow.add("button", undefined, "小数点以下切り捨て");
+    var btnInfo = btnRow.add("button", undefined, tr("getInfo"));
+    var btnFloor = btnRow.add("button", undefined, tr("floor"));
 
     // --- 追加項目 ---
-    var chkOpacity = win.add("checkbox", undefined, "取得と同時に透明度30%");
+    var chkOpacity = win.add("checkbox", undefined, tr("opacity"));
     chkOpacity.value = true; // デフォルトでチェック
     // ----------------
 
-    var btnTrim = win.add("button", undefined, "コンポをトリミング（時間も調整）");
+    var btnTrim = win.add("button", undefined, tr("trim"));
 
     // 情報欄（少し細め）
     var infoText = win.add("edittext", undefined, "", { multiline: true, scrolling: true });
@@ -34,7 +82,7 @@
 
     // --- 配置（Xi/Yi） ---
     var restoreRow = win.add("group"); restoreRow.spacing = 6; restoreRow.alignment = ["fill", "top"];
-    var btnRestore = restoreRow.add("button", undefined, "配置");
+    var btnRestore = restoreRow.add("button", undefined, tr("place"));
     restoreRow.add("statictext", undefined, "Xi:");
     var xidouInput = restoreRow.add("edittext", undefined, "0"); xidouInput.characters = 6;
     restoreRow.add("statictext", undefined, "Yi:");
@@ -42,7 +90,7 @@
 
     // ステップ
     var stepRow = win.add("group"); stepRow.spacing = 4;
-    stepRow.add("statictext", undefined, "移動ステップ(px):");
+    var stepLabel = stepRow.add("statictext", undefined, tr("moveStep"));
     var stepInput = stepRow.add("edittext", undefined, "10"); stepInput.characters = 4;
 
     // 矢印
@@ -59,16 +107,16 @@
     posRow.add("statictext", undefined, "X/Y:");
     var posX = posRow.add("edittext", undefined, "0"); posX.characters = 6;
     var posY = posRow.add("edittext", undefined, "0"); posY.characters = 6;
-    var btnSetPos = posRow.add("button", undefined, "適用");
+    var btnSetPos = posRow.add("button", undefined, tr("apply"));
 
     var sizeRow = editGrid.add("group"); sizeRow.spacing = 3;
     sizeRow.add("statictext", undefined, "W/H:");
     var sizeW = sizeRow.add("edittext", undefined, "100"); sizeW.characters = 6;
     var sizeH = sizeRow.add("edittext", undefined, "100"); sizeH.characters = 6;
-    var btnSetSize = sizeRow.add("button", undefined, "適用");
+    var btnSetSize = sizeRow.add("button", undefined, tr("apply"));
 
     // --- W/H起点（9個・単一選択） ---
-    var anchorPanel = win.add("panel", undefined, "W/H起点");
+    var anchorPanel = win.add("panel", undefined, tr("origin"));
     anchorPanel.orientation = "column"; anchorPanel.alignment = ["center", "top"]; anchorPanel.margins = 6; anchorPanel.spacing = 2;
     var anchorButtons = [];
     for (var r = 0; r < 3; r++) {
@@ -84,6 +132,21 @@
     }
     function getAnchorIndex() { for (var i = 0; i < anchorButtons.length; i++) if (anchorButtons[i].value) return i; return 4; }
     function oppositeAnchor(i) { var map = [8, 7, 6, 5, 4, 3, 2, 1, 0]; return (i >= 0 && i < 9) ? map[i] : 4; }
+
+    function updateLanguage() {
+        win.text = tr("title"); languageLabel.text = tr("language"); warn.text = tr("warning"); guide.text = tr("guide");
+        btnInfo.text = tr("getInfo"); btnFloor.text = tr("floor"); chkOpacity.text = tr("opacity"); btnTrim.text = tr("trim");
+        btnRestore.text = tr("place"); stepLabel.text = tr("moveStep"); btnSetPos.text = tr("apply"); btnSetSize.text = tr("apply");
+        anchorPanel.text = tr("origin");
+        if (lastData && rectPosProp && rectSizeProp) refreshInfo();
+        else infoText.text = "";
+        win.layout.layout(true);
+    }
+    languageList.onChange = function () {
+        language = languageList.selection && languageList.selection.index === 1 ? "en" : "ja";
+        try { app.settings.saveSetting(SETTINGS_SECTION, SETTINGS_LANGUAGE, language); } catch (e) { }
+        updateLanguage();
+    };
 
     win.center(); win.show();
 
@@ -197,27 +260,27 @@
             sizeW.text = shapeSize[0].toFixed(2); sizeH.text = shapeSize[1].toFixed(2);
 
             infoText.text =
-                "◆ コンポ情報 ◆\nサイズ: " + comp.width + " x " + comp.height + " px\n全体時間: " + comp.duration.toFixed(3) + " 秒\n\n" +
-                "◆ シェイプレイヤー情報 ◆\n元サイズ: " + shapeSize[0].toFixed(2) + " x " + shapeSize[1].toFixed(2) + " px\n" +
-                "スケール: X=" + layerScale[0].toFixed(2) + "%, Y=" + layerScale[1].toFixed(2) + "%\n" +
-                "実サイズ: " + scaledSize[0].toFixed(2) + " x " + scaledSize[1].toFixed(2) + " px\n" +
-                "パス位置: X=" + shapePos[0].toFixed(2) + ", Y=" + shapePos[1].toFixed(2) + "\n" +
-                "トランスフォーム位置: X=" + rectTr[0].toFixed(2) + ", Y=" + rectTr[1].toFixed(2) + "\n" +
-                "レイヤー位置: X=" + layerPos[0].toFixed(2) + ", Y=" + layerPos[1].toFixed(2) + "\n" +
-                "左上座標: X=" + lx.toFixed(2) + ", Y=" + ly.toFixed(2) + "\n\n" +
-                "◆ レイヤー時間 ◆\nIn: " + In.toFixed(3) + "  Out: " + Out.toFixed(3) + "  Dur: " + Dur.toFixed(3) + " 秒";
-        } catch (e) { infoText.text = "エラー: " + e; }
+                tr("compInfo") + "\n" + tr("size") + ": " + comp.width + " x " + comp.height + " px\n" + tr("duration") + ": " + comp.duration.toFixed(3) + tr("sec") + "\n\n" +
+                tr("shapeInfo") + "\n" + tr("baseSize") + ": " + shapeSize[0].toFixed(2) + " x " + shapeSize[1].toFixed(2) + " px\n" +
+                tr("scale") + ": X=" + layerScale[0].toFixed(2) + "%, Y=" + layerScale[1].toFixed(2) + "%\n" +
+                tr("actualSize") + ": " + scaledSize[0].toFixed(2) + " x " + scaledSize[1].toFixed(2) + " px\n" +
+                tr("pathPos") + ": X=" + shapePos[0].toFixed(2) + ", Y=" + shapePos[1].toFixed(2) + "\n" +
+                tr("transformPos") + ": X=" + rectTr[0].toFixed(2) + ", Y=" + rectTr[1].toFixed(2) + "\n" +
+                tr("layerPos") + ": X=" + layerPos[0].toFixed(2) + ", Y=" + layerPos[1].toFixed(2) + "\n" +
+                tr("topLeft") + ": X=" + lx.toFixed(2) + ", Y=" + ly.toFixed(2) + "\n\n" +
+                tr("layerTime") + "\nIn: " + In.toFixed(3) + "  Out: " + Out.toFixed(3) + "  Dur: " + Dur.toFixed(3) + tr("sec");
+        } catch (e) { infoText.text = tr("error") + e; }
     }
 
     // 情報取得 DiGiMonkey
     btnInfo.onClick = function () {
-        app.beginUndoGroup("Shape情報取得");
+        app.beginUndoGroup(tr("undoInfo"));
         try {
             infoText.text = "";
             lastData = null; rectPosProp = null; rectSizeProp = null; rectGroup = null;
 
-            var comp = app.project.activeItem; if (!(comp instanceof CompItem)) throw "コンポがアクティブではありません。";
-            var layer = comp.selectedLayers[0]; if (!layer) throw "シェイプレイヤーを選択してください。";
+            var comp = app.project.activeItem; if (!(comp instanceof CompItem)) throw tr("noComp");
+            var layer = comp.selectedLayers[0]; if (!layer) throw tr("selectShape");
 
             // --- 透明度50%処理 ---
             if (chkOpacity.value === true) {
@@ -228,25 +291,25 @@
 
             var root = layer.property("ADBE Root Vectors Group");
             var hit = findRectPathAndGroup(root);
-            if (!hit) throw "長方形パスが見つかりません。";
+            if (!hit) throw tr("noRect");
 
             var rectPath = hit.rectPath; rectGroup = hit.rectGroup;
             rectPosProp = rectPath.property("ADBE Vector Rect Position");
             rectSizeProp = rectPath.property("ADBE Vector Rect Size");
-            if (!rectPosProp || !rectSizeProp) throw "長方形の位置/サイズが取得できません。";
+            if (!rectPosProp || !rectSizeProp) throw tr("noRectData");
 
             lastData = { comp: comp, layer: layer };
             refreshInfo();
-        } catch (e) { infoText.text = "エラー: " + e; }
+        } catch (e) { infoText.text = tr("error") + e; }
         finally { app.endUndoGroup(); }
     };
 
     // 切り捨てボタン
     btnFloor.onClick = function () {
-        app.beginUndoGroup("小数点以下切り捨て");
+        app.beginUndoGroup(tr("undoFloor"));
         try {
-            var comp = app.project.activeItem; if (!(comp instanceof CompItem)) throw "コンポがアクティブではありません。";
-            var layers = comp.selectedLayers; if (!layers || layers.length === 0) throw "レイヤーを選択してください。";
+            var comp = app.project.activeItem; if (!(comp instanceof CompItem)) throw tr("noComp");
+            var layers = comp.selectedLayers; if (!layers || layers.length === 0) throw tr("selectLayers");
             for (var i = 0; i < layers.length; i++) {
                 var layer = layers[i];
                 var root = layer.property("ADBE Root Vectors Group");
@@ -254,14 +317,14 @@
                 floorLayerTransform(layer);
             }
             refreshInfo();
-        } catch (e) { alert("エラー: " + e); }
+        } catch (e) { alert(tr("error") + e); }
         finally { app.endUndoGroup(); }
     };
 
     function step() { return num(stepInput.text, 1); }
     function move(dx, dy) {
         if (!rectPosProp) return;
-        app.beginUndoGroup("Shape移動");
+        app.beginUndoGroup(tr("undoMove"));
         var p = rectPosProp.value; rectPosProp.setValue([p[0] + dx, p[1] + dy]);
         app.endUndoGroup(); refreshInfo();
     }
@@ -292,8 +355,8 @@
 
     // トリミング
     btnTrim.onClick = function () {
-        if (!lastData) { alert("先に「情報取得」を実行してください。"); return; }
-        app.beginUndoGroup("コンポトリミング");
+        if (!lastData) { alert(tr("getFirst")); return; }
+        app.beginUndoGroup(tr("undoTrim"));
         try {
             var comp = lastData.comp, layer = lastData.layer, currentTime = comp.time;
 
@@ -332,20 +395,20 @@
             xidouInput.text = xi.toFixed(2);
             yidouInput.text = yi.toFixed(2);
 
-            infoText.text += "\n◆ レイヤー時間 ◆\nIn: " + layer.inPoint.toFixed(3) + "  Out: " + layer.outPoint.toFixed(3) + "  Dur: " + (layer.outPoint - layer.inPoint).toFixed(3) + " 秒" +
-                "\n親ヌル移動: X=" + shownX.toFixed(2) + ", Y=" + shownY.toFixed(2) +
-                "\nトリム完了\n新しいコンポサイズ: " + newW + " x " + newH + " px" +
+            infoText.text += "\n" + tr("layerTime") + "\nIn: " + layer.inPoint.toFixed(3) + "  Out: " + layer.outPoint.toFixed(3) + "  Dur: " + (layer.outPoint - layer.inPoint).toFixed(3) + tr("sec") +
+                "\n" + tr("parentOffset") + ": X=" + shownX.toFixed(2) + ", Y=" + shownY.toFixed(2) +
+                "\n" + tr("trimComplete") + "\n" + tr("newCompSize") + ": " + newW + " x " + newH + " px" +
                 "\nXi=" + xi.toFixed(2) + ", Yi=" + yi.toFixed(2);
-        } catch (e) { alert("エラー: " + e); }
+        } catch (e) { alert(tr("error") + e); }
         finally { app.endUndoGroup(); }
     };
 
     // 配置：選択レイヤーの位置へ適用（複数/分離次元対応）
     btnRestore.onClick = function () {
-        app.beginUndoGroup("配置");
+        app.beginUndoGroup(tr("undoPlace"));
         try {
-            var comp = app.project.activeItem; if (!(comp instanceof CompItem)) throw "コンポがアクティブではありません。";
-            var layers = comp.selectedLayers; if (!layers || layers.length === 0) throw "移動させるレイヤーを選択してください。";
+            var comp = app.project.activeItem; if (!(comp instanceof CompItem)) throw tr("noComp");
+            var layers = comp.selectedLayers; if (!layers || layers.length === 0) throw tr("selectTargets");
             var x = num(xidouInput.text, 0), y = num(yidouInput.text, 0);
 
             for (var i = 0; i < layers.length; i++) {
@@ -362,7 +425,7 @@
                     } catch (_) { }
                 }
             }
-        } catch (e) { alert("エラー: " + e); }
+        } catch (e) { alert(tr("error") + e); }
         finally { app.endUndoGroup(); }
     };
 
