@@ -1,4 +1,21 @@
 (function (thisObj) {
+    // AEの表示言語に合わせてUI文言を選択する（日本語以外は英語）。
+    var UI_TEXT = (app.isoLanguage === "ja_JP") ? {
+        refresh: "再読み込み",
+        setRoot: "ルート変更",
+        openFolder: "フォルダを開く",
+        folderNotFound: "フォルダが見つかりません:",
+        selectFolder: "フォルダを選択",
+        openFolderFailed: "フォルダを開けませんでした:"
+    } : {
+        refresh: "Refresh",
+        setRoot: "Change Root",
+        openFolder: "Open Folder",
+        folderNotFound: "Folder not found:",
+        selectFolder: "Select a folder",
+        openFolderFailed: "Could not open the folder:"
+    };
+
     // --- 設定ファイルのパス定義 ---
     var PREF_FILE = new File(Folder.myDocuments.fullName + "/ScriptBrowser.txt");
     
@@ -40,9 +57,9 @@
         var toolBar = win.add("group");
         toolBar.orientation = "row";
         toolBar.alignment = ["fill", "top"];
-        var btnRefresh = toolBar.add("button", undefined, "再読み込み");
-        var btnSetRoot = toolBar.add("button", undefined, "ルート変更");
-        var btnOpenFolder = toolBar.add("button", undefined, "フォルダを開く");
+        var btnRefresh = toolBar.add("button", undefined, UI_TEXT.refresh);
+        var btnSetRoot = toolBar.add("button", undefined, UI_TEXT.setRoot);
+        var btnOpenFolder = toolBar.add("button", undefined, UI_TEXT.openFolder);
 
         // --- ツリービュー ---
         var tree = win.add("treeview", undefined, "");
@@ -87,7 +104,7 @@
             if (SCRIPTS_ROOT.exists) {
                 addFolder(SCRIPTS_ROOT, tree);
             } else {
-                alert("フォルダが見つかりません:\n" + SCRIPTS_ROOT.fsName);
+                alert(UI_TEXT.folderNotFound + "\n" + SCRIPTS_ROOT.fsName);
             }
         }
 
@@ -95,7 +112,7 @@
         btnRefresh.onClick = refreshTree;
         
         btnSetRoot.onClick = function () {
-            var newPath = Folder.selectDialog("フォルダを選択");
+            var newPath = Folder.selectDialog(UI_TEXT.selectFolder);
             if (newPath) { 
                 SCRIPTS_ROOT = newPath; 
                 savePref(newPath); // ルート変更時に保存
@@ -110,7 +127,28 @@
                 if (sel.folder) targetFolder = sel.folder;
                 else if (sel.file) targetFolder = sel.file.parent;
             }
-            if (targetFolder.exists) targetFolder.execute();
+            // 最新の存在状態を確認し、失敗時は無言で終了しない。
+            targetFolder = new Folder(targetFolder.fsName);
+            if (!targetFolder.exists) {
+                alert(UI_TEXT.folderNotFound + "\n" + targetFolder.fsName);
+                return;
+            }
+            try {
+                if (Folder.fs === "Windows") {
+                    // WindowsではExplorerにパスを直接渡す。空白や日本語を含むパスにも対応。
+                    var explorer = new File(Folder.system.fsName + "/explorer.exe");
+                    if (!explorer.exists) explorer = new File(Folder.system.parent.fsName + "/explorer.exe");
+                    if (explorer.exists) {
+                        system.callSystem('"' + explorer.fsName + '" "' + targetFolder.fsName + '"');
+                    } else if (!targetFolder.execute()) {
+                        alert(UI_TEXT.openFolderFailed + "\n" + targetFolder.fsName);
+                    }
+                } else if (!targetFolder.execute()) {
+                    alert(UI_TEXT.openFolderFailed + "\n" + targetFolder.fsName);
+                }
+            } catch (e) {
+                alert(UI_TEXT.openFolderFailed + "\n" + targetFolder.fsName + "\n" + e.toString());
+            }
         };
 
         tree.onDoubleClick = function () {
